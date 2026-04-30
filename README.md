@@ -70,13 +70,13 @@ temp-directory placement, compression level, and verification mode.
 | `--order`              | Order                                  | Typical use                       |
 | ---------------------- | -------------------------------------- | --------------------------------- |
 | `coordinate`           | `tid → pos → strand`                   | IGV, variant calling, indexing    |
-| `queryname`            | Lexicographic read name (default)      | Fast queryname sort               |
+| `queryname`            | Lexicographic read name (default sub-sort) | Fast queryname sort           |
 | `queryname::natural`   | Natural numeric read name              | `samtools`-compatible             |
 | `template-coordinate`  | Paired reads grouped by template       | UMI grouping pipelines            |
 
 ## Performance
 
-Mako inherits its sort engine from [fgumi](https://github.com/fulcrumgenomics/fgumi).
+`mako` inherits its sort engine from [fgumi](https://github.com/fulcrumgenomics/fgumi).
 On a 30M-read WGS BAM, the engine sorts roughly 1.9× faster than
 `samtools sort` for template-coordinate order. See the fgumi
 documentation for detailed benchmarks and tuning guidance.
