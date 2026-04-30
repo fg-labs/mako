@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
       - name: Create or update release PR
@@ -29,10 +29,13 @@ jobs:
         with:
           command: release-pr
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
     outputs:
       version: ${{ steps.publish.outputs.version }}
       published: ${{ steps.publish.outputs.published }}
@@ -41,13 +44,15 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+      - name: Authenticate to crates.io via Trusted Publishing
+        id: crates-auth
+        uses: rust-lang/crates-io-auth-action@bbd81622f20ce9e2dd9622e3218b975523e45bbe # v1.0.4
       - name: Publish if needed
         id: publish
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates-auth.outputs.token }}
         run: |
           set -euo pipefail
           VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r \
@@ -69,7 +74,7 @@ jobs:
       - name: Create GitHub release
         if: steps.publish.outputs.published == 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           VERSION="${{ steps.publish.outputs.version }}"
@@ -90,6 +95,8 @@ jobs:
   binaries:
     needs: publish
     if: needs.publish.outputs.published == 'true'
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -139,7 +146,7 @@ jobs:
           shasum -a 256 "${BIN_NAME}.tar.gz" > "${BIN_NAME}.tar.gz.sha256"
       - name: Upload to release
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.publish.outputs.version }}
           TARGET: ${{ matrix.target }}
         run: |
