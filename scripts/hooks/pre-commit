@@ -1,0 +1,49 @@
+#!/bin/bash
+#
+# Pre-commit hook for mako.
+#
+# Runs cargo ci-fmt and cargo ci-lint before each commit.
+# ci-test is skipped by default (slow) but can be enabled with:
+#   MAKO_PRECOMMIT_TEST=1 git commit
+#
+# To bypass entirely (use sparingly):
+#   git commit --no-verify
+
+set -e
+
+echo "Running pre-commit checks..."
+
+if [[ ! -f "Cargo.toml" ]]; then
+    echo "Error: Not in mako root directory"
+    exit 1
+fi
+
+echo "==> cargo ci-fmt"
+if ! cargo ci-fmt; then
+    echo ""
+    echo "Formatting check failed!"
+    echo "Run 'cargo fmt' to fix formatting issues."
+    exit 1
+fi
+
+echo "==> cargo ci-lint"
+if ! cargo ci-lint; then
+    echo ""
+    echo "Lint check failed!"
+    echo "Fix the clippy warnings above before committing."
+    exit 1
+fi
+
+if [[ "${MAKO_PRECOMMIT_TEST:-0}" == "1" ]]; then
+    echo "==> cargo ci-test"
+    if ! cargo ci-test; then
+        echo ""
+        echo "Tests failed!"
+        exit 1
+    fi
+else
+    echo "==> Skipping ci-test (set MAKO_PRECOMMIT_TEST=1 to enable)"
+fi
+
+echo ""
+echo "Pre-commit checks passed!"

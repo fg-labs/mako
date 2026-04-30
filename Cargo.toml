@@ -1,0 +1,39 @@
+[package]
+name = "fg-mako"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.93.0"
+authors = ["Nils Homer <nils@fulcrumgenomics.com>"]
+description = "Fast SAM/BAM sorter (installs the `mako` binary)."
+repository = "https://github.com/fg-labs/mako"
+homepage = "https://github.com/fg-labs/mako"
+documentation = "https://docs.rs/fg-mako"
+readme = "README.md"
+categories = ["command-line-utilities", "science"]
+keywords = ["bioinformatics", "bam", "sam", "sort", "ngs"]
+license = "MIT"
+
+[[bin]]
+name = "mako"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+env_logger = "0.11"
+fgumi = "0.2.0"
+log = "0.4"
+mimalloc = { version = "0.1", default-features = false }
+
+[dev-dependencies]
+assert_cmd = "2"
+noodles = { version = "0.106", features = ["bam", "sam"] }
+predicates = "3"
+tempfile = "3"
+
+[build-dependencies]
+built = { version = "0", features = ["git2", "dependency-tree"] }
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
