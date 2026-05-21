@@ -29,9 +29,10 @@ mod built_info {
     long_about = None,
 )]
 struct Cli {
-    /// Show info-level progress logs (config, phase timings, summary).
-    /// Defaults to warn-only; `RUST_LOG` overrides both this flag and
-    /// the default (e.g. `RUST_LOG=debug` for the noisiest output).
+    /// Show info-level progress logs from the sort engine (config
+    /// snapshot, per-phase markers, final summary). Without this flag
+    /// only warnings and errors are shown. `RUST_LOG` overrides both
+    /// (e.g. `RUST_LOG=debug` for the noisiest output).
     #[arg(short = 'v', long = "verbose")]
     verbose: bool,
 
