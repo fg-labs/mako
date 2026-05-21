@@ -94,7 +94,8 @@ fn version_includes_fgumi_attribution() {
     let out = mako().arg("--version").output().unwrap();
     assert!(out.status.success(), "mako --version should exit 0");
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.starts_with("mako 0.1.0"), "unexpected version line: {stdout}");
+    let expected_prefix = format!("mako {}", env!("CARGO_PKG_VERSION"));
+    assert!(stdout.starts_with(&expected_prefix), "unexpected version line: {stdout}");
     assert!(stdout.contains("powered by fgumi"), "missing fgumi attribution: {stdout}");
 }
 
