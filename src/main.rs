@@ -29,6 +29,12 @@ mod built_info {
     long_about = None,
 )]
 struct Cli {
+    /// Show info-level progress logs (config, phase timings, summary).
+    /// Defaults to warn-only; `RUST_LOG` overrides both this flag and
+    /// the default (e.g. `RUST_LOG=debug` for the noisiest output).
+    #[arg(short = 'v', long = "verbose")]
+    verbose: bool,
+
     #[command(flatten)]
     sort: Sort,
 }
@@ -49,12 +55,17 @@ fn mako_long_version() -> &'static str {
 }
 
 fn main() -> Result<()> {
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
-
     // Capture the original invocation for the @PG header record before clap
     // consumes it.
     let command_line = std::env::args().collect::<Vec<_>>().join(" ");
 
     let cli = Cli::parse();
+
+    // Default to warn-only so the sort engine's per-phase info logs don't
+    // dominate the terminal. `-v`/`--verbose` opts in to info; `RUST_LOG`
+    // (read by `from_env`) always wins for finer control.
+    let default_level = if cli.verbose { "info" } else { "warn" };
+    env_logger::Builder::from_env(Env::default().default_filter_or(default_level)).init();
+
     cli.sort.execute(&command_line)
 }

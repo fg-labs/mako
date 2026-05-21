@@ -216,7 +216,52 @@ fn verify_fails_on_unsorted_input() {
 }
 
 // ---------------------------------------------------------------------------
-// Test 7: nonexistent input → non-zero exit with diagnostic
+// Test 7: default logging is quiet; -v opts in to info-level logs
+// ---------------------------------------------------------------------------
+
+#[test]
+fn verbose_flag_enables_info_logs() {
+    let tmp = TempDir::new().unwrap();
+    let input = tmp.path().join("in.bam");
+    let output_quiet = tmp.path().join("out-quiet.bam");
+    let output_verbose = tmp.path().join("out-verbose.bam");
+    write_bam(&input, &[record("a", 500), record("b", 100)]);
+
+    // Default: sort engine's info logs ("Starting Sort", config, summary)
+    // are suppressed.
+    let out = mako()
+        .env_remove("RUST_LOG")
+        .args(["-i", input.to_str().unwrap()])
+        .args(["-o", output_quiet.to_str().unwrap()])
+        .args(["--order", "coordinate"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "default sort should succeed");
+    let stderr_quiet = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        !stderr_quiet.contains("Starting Sort"),
+        "default run should suppress info logs, got: {stderr_quiet}"
+    );
+
+    // With -v, info-level logs reappear on stderr.
+    let out = mako()
+        .env_remove("RUST_LOG")
+        .args(["-i", input.to_str().unwrap()])
+        .args(["-o", output_verbose.to_str().unwrap()])
+        .args(["--order", "coordinate"])
+        .arg("-v")
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "-v sort should succeed");
+    let stderr_verbose = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr_verbose.contains("Starting Sort"),
+        "-v should surface info logs, got: {stderr_verbose}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Test 8: nonexistent input → non-zero exit with diagnostic
 // ---------------------------------------------------------------------------
 
 #[test]
