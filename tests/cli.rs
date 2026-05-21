@@ -221,14 +221,18 @@ fn verify_fails_on_unsorted_input() {
 
 #[test]
 fn verbose_flag_enables_info_logs() {
+    // Asserts on env_logger's default level field (` INFO `) so the test
+    // stays valid if fgumi renames or removes any specific info-level
+    // log line. env_logger's default format is
+    // `[<ts> <LEVEL> <module>] <msg>` with the level padded to 5 chars.
+    const INFO_MARKER: &str = " INFO ";
+
     let tmp = TempDir::new().unwrap();
     let input = tmp.path().join("in.bam");
     let output_quiet = tmp.path().join("out-quiet.bam");
     let output_verbose = tmp.path().join("out-verbose.bam");
     write_bam(&input, &[record("a", 500), record("b", 100)]);
 
-    // Default: sort engine's info logs ("Starting Sort", config, summary)
-    // are suppressed.
     let out = mako()
         .env_remove("RUST_LOG")
         .args(["-i", input.to_str().unwrap()])
@@ -239,11 +243,10 @@ fn verbose_flag_enables_info_logs() {
     assert!(out.status.success(), "default sort should succeed");
     let stderr_quiet = String::from_utf8_lossy(&out.stderr);
     assert!(
-        !stderr_quiet.contains("Starting Sort"),
+        !stderr_quiet.contains(INFO_MARKER),
         "default run should suppress info logs, got: {stderr_quiet}"
     );
 
-    // With -v, info-level logs reappear on stderr.
     let out = mako()
         .env_remove("RUST_LOG")
         .args(["-i", input.to_str().unwrap()])
@@ -255,7 +258,7 @@ fn verbose_flag_enables_info_logs() {
     assert!(out.status.success(), "-v sort should succeed");
     let stderr_verbose = String::from_utf8_lossy(&out.stderr);
     assert!(
-        stderr_verbose.contains("Starting Sort"),
+        stderr_verbose.contains(INFO_MARKER),
         "-v should surface info logs, got: {stderr_verbose}"
     );
 }
