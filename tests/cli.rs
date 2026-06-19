@@ -5,11 +5,16 @@
 //! binary, and inspect its exit status and outputs. They prove the
 //! wiring (clap flatten, command_line plumbing, exit codes) — not the
 //! correctness of fgumi's underlying sort, which is exercised upstream.
+//!
+//! The `cat file | mako` stdin tests spawn `cat` children whose stdout is
+//! consumed as mako's stdin; they are reaped when the pipe is drained, so
+//! the never-`wait`ed `Child` is intentional.
+#![allow(clippy::zombie_processes)]
 
 use std::fs::File;
 use std::num::NonZeroUsize;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use assert_cmd::cargo::CommandCargoExt;
 use noodles::bam;
@@ -283,4 +288,108 @@ fn nonexistent_input_exits_nonzero() {
     assert!(!out.status.success(), "expected non-zero exit on missing input");
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(!stderr.is_empty(), "expected a diagnostic on stderr");
+}
+
+// ---------------------------------------------------------------------------
+// Test 9: sort reads a BAM piped on stdin (parity with file input)
+// ---------------------------------------------------------------------------
+
+/// Pipe `input` to `mako` via `cat` (so stdin is a non-seekable stream, like a
+/// real `cat foo.bam | mako` pipe) and coordinate-sort it to `output`, reading
+/// from the given `input_arg` (`-` or `/dev/stdin`). Asserts a clean exit.
+fn sort_from_piped_stdin(input: &Path, output: &Path, input_arg: &str) {
+    let cat = Command::new("cat")
+        .arg(input.to_str().unwrap())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("failed to spawn cat");
+    let status = mako()
+        .args(["-i", input_arg])
+        .args(["-o", output.to_str().unwrap()])
+        .args(["--order", "coordinate"])
+        .stdin(cat.stdout.expect("cat stdout"))
+        .status()
+        .unwrap();
+    assert!(status.success(), "mako coordinate sort from stdin ({input_arg}) exited non-zero");
+}
+
+/// Sorting a BAM streamed on stdin must produce the same records as sorting the
+/// same BAM from a file. Mirrors fgumi's `test_sort_reads_stdin_once`: it guards
+/// against regressions where stdin is dropped, double-opened, or read twice.
+///
+/// Both `-` and `/dev/stdin` are exercised: `/dev/stdin` is a real path
+/// (`Path::exists` is true), so a stdin gate keyed only on the literal `-`
+/// would mishandle it.
+#[test]
+fn sort_from_stdin_matches_file_input() {
+    let tmp = TempDir::new().unwrap();
+    let input = tmp.path().join("in.bam");
+    write_bam(&input, &[record("a", 500), record("b", 100), record("c", 300)]);
+
+    // Baseline: sort from a file.
+    let out_file = tmp.path().join("out-file.bam");
+    let status = mako()
+        .args(["-i", input.to_str().unwrap()])
+        .args(["-o", out_file.to_str().unwrap()])
+        .args(["--order", "coordinate"])
+        .status()
+        .unwrap();
+    assert!(status.success(), "baseline file sort exited non-zero");
+
+    let (_, expected) = read_bam(&out_file);
+    // Guard against a vacuous pass: the baseline must actually emit records,
+    // otherwise the parity comparison below would be trivially true even if
+    // stdin were dropped entirely.
+    assert_eq!(expected.len(), 3, "baseline sort should emit all 3 records");
+
+    for input_arg in ["-", "/dev/stdin"] {
+        let out_pipe = tmp.path().join("out-pipe.bam");
+        sort_from_piped_stdin(&input, &out_pipe, input_arg);
+        let (_, actual) = read_bam(&out_pipe);
+        assert_eq!(
+            actual, expected,
+            "records from stdin ({input_arg}) differ from file-input sort"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Test 10: --verify rejects a non-seekable stdin stream with a clear message
+// ---------------------------------------------------------------------------
+
+/// `--verify` re-reads its input (header probe + a fresh record re-scan), which
+/// a non-seekable stdin stream can't satisfy, so it must be rejected up front
+/// with a message that mentions stdin — not fail cryptically deep in a re-open.
+/// Mirrors fgumi's `test_sort_verify_rejects_stdin_with_clear_message`; covers
+/// both `-` and `/dev/stdin` since the latter is a real, existing path.
+#[test]
+fn verify_rejects_stdin_input() {
+    for input_arg in ["-", "/dev/stdin"] {
+        let tmp = TempDir::new().unwrap();
+        let input = tmp.path().join("in.bam");
+        write_bam(&input, &[record("a", 500), record("b", 100), record("c", 300)]);
+
+        let cat = Command::new("cat")
+            .arg(input.to_str().unwrap())
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("failed to spawn cat");
+        let out = mako()
+            .args(["-i", input_arg])
+            .args(["--verify"])
+            .args(["--order", "coordinate"])
+            .stdin(cat.stdout.expect("cat stdout"))
+            .output()
+            .unwrap();
+
+        assert!(
+            !out.status.success(),
+            "--verify from stdin ({input_arg}) must be rejected, not succeed"
+        );
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(
+            stderr.contains("stdin"),
+            "--verify stdin ({input_arg}) rejection should mention stdin; stderr: {stderr}"
+        );
+    }
 }
