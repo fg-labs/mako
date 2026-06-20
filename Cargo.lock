@@ -553,9 +553,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc38508944dbe816cf4d7ce7705175fd4ff5965d2745fe8abc0089531a34906f"
+checksum = "d2686048ee141f020150f4296209c23408293d9444fb67f5fbaa802975d4a76e"
 dependencies = [
  "ahash",
  "anyhow",
@@ -613,9 +613,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-bam-io"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3400b02c609fba700ea8cb4ec69fa8ffef4fae77cce8486be06d4261da56009"
+checksum = "2b71a38f5012cedb048557a5743260c1a7f638100244f53e80521cf59aaf6748"
 dependencies = [
  "anyhow",
  "bgzf",
@@ -632,9 +632,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-bgzf"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c773e6b6bfa07bedf6f59936148e375b09f7c1f0a8673315e0ea1035d01660c"
+checksum = "7b40a941edb1dc36c9626619c1c60eaaea450ca99494dbd292e79a4fa4a3dcf0"
 dependencies = [
  "bgzf",
  "crc32fast",
@@ -643,9 +643,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-consensus"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6e3ab1bf5f54c4c86860a4dcb9ef5e0a695da0a971282debeb1d3e39238babb"
+checksum = "aad542f4921c950c1ab914be79ad5d08f81ef0d4f297a1b6d3b19c438055bd12"
 dependencies = [
  "ahash",
  "anyhow",
@@ -664,15 +664,15 @@ dependencies = [
 
 [[package]]
 name = "fgumi-dna"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cca9b7e9f286daa52faf7612d4924ac4e1060f2e85f90a5b7209b099d1139610"
+checksum = "a5f3a3f8369dca7b06f5605a937460d22920377ba772189d8f1e8d48088a1f3b"
 
 [[package]]
 name = "fgumi-metrics"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67e483664d4737f13cb19cd0587e4622df434de35170a9484c68fd96b5fae65c"
+checksum = "6725b6e30ac57b7f3abfb767bc3335519ff68ce6c93d5cdbaf3b2d18046cd46c"
 dependencies = [
  "anyhow",
  "fgoxide",
@@ -683,9 +683,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-raw-bam"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49533a381a92cd444691fbe2dcabf193de00897e60d851adcca1fdb0aed75ed1"
+checksum = "8268f8f948c3a6fd0586b685246d72a9d666c3ad751af0174a518a89f37ab274"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -696,9 +696,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-sam"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "672d0ae32cffcee6388fac7756a89be34b51ce171f4332e168beb3988cdb325d"
+checksum = "6581a227eec97252fe79d23c813a58e3d622f124db8f55d5c0c17bceb9fa44f0"
 dependencies = [
  "anyhow",
  "bstr 1.12.1",
@@ -713,15 +713,15 @@ dependencies = [
 
 [[package]]
 name = "fgumi-simd-fastq"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f34b6e9ff73fd06efb5d45235d2f04ef191b50108f4558b5c34ddd0847f3848d"
+checksum = "63d379aed24a389a1b4d4bd2a7803169fb569e87142638cb060947588277c30d"
 
 [[package]]
 name = "fgumi-sort"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e08a018d72910c145f9f4d32502f7ae5636b1826ba9123a42d0d0cea2a37b95c"
+checksum = "6b49ac419304420c27cfb26fbb0dd799607b7a46ca6d0a2eb29fdfbf40410c97"
 dependencies = [
  "ahash",
  "anyhow",
@@ -751,9 +751,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-tag"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5268feb241d84bff9cefd902d4add7acf90c2e1d76fbf44348fc145778697ee7"
+checksum = "0c8f1b9af64ea5e22cf60193d2ca166f9138063e32735da9e4d8ff643db2e95b"
 dependencies = [
  "anyhow",
  "noodles 0.111.0",
@@ -761,9 +761,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-umi"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1685337b83c69d5c3064a4c34f0b715eb6bbd5317c4e2c2d1b114e60ad2c26fa"
+checksum = "71f0305c00c490a02c9b4d6b2a8d47127edcb89528db5bc273b43662b2ee759a"
 dependencies = [
  "ahash",
  "anyhow",
