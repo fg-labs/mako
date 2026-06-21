@@ -7,5 +7,6 @@ dependencies_update = true
 pr_labels = ["release"]
 # disable git releases (handled by publish workflow)
 git_release_enable = false
-# disable running `cargo-semver-checks` until after the first release
-semver_check = false
+# run `cargo-semver-checks` to catch accidental breaking changes (enabled now
+# that the crate has published releases)
+semver_check = true
