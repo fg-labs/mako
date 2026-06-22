@@ -62,6 +62,15 @@ Verify sort order without rewriting:
 mako -i sorted.bam --verify --order coordinate
 ```
 
+Pipe the sorted stream into another process without paying for BGZF
+compression that the consumer will only undo. `--compression-level 0` writes
+uncompressed (stored) BGZF — a valid BAM with no DEFLATE — which is faster when
+the output is consumed immediately rather than written to disk:
+
+```sh
+mako -i in.bam -o /dev/stdout --order coordinate --compression-level 0 | downstream-tool
+```
+
 Run `mako --help` for the full list of options including memory limits,
 temp-directory placement, compression level, and verification mode.
 

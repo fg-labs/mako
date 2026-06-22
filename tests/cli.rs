@@ -393,3 +393,75 @@ fn verify_rejects_stdin_input() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Test 11: --compression-level passthrough (level 0 = uncompressed, for pipes)
+// ---------------------------------------------------------------------------
+
+/// `--compression-level` flows through the flattened `Sort` to the spill-merge
+/// output BGZF writer. Level 0 writes uncompressed (stored) BGZF — a valid BAM
+/// with no DEFLATE — which is the fast path when piping the sort into another
+/// process: skipping output compression measurably speeds the sort up, and the
+/// downstream tool re-reads (or recompresses) anyway.
+///
+/// This locks in two things a future fgumi bump must not silently regress:
+/// (1) the flag actually reaches the writer — level-0 output is materially
+/// larger than level-1 for the same compressible records; and (2) the
+/// compression level never alters the records — both levels decode to the same
+/// coordinate-sorted set.
+///
+/// The input is forced to spill (tiny `--max-memory`), because the
+/// piped/uncompressed use case is large inputs, which always spill and merge —
+/// and that merge writer is the one that honors level 0.
+#[test]
+fn compression_level_passthrough_level0_is_uncompressed() {
+    let tmp = TempDir::new().unwrap();
+    let input = tmp.path().join("in.bam");
+
+    // Many records with repetitive content and unique, descending positions:
+    // unique keys make the coordinate sort fully deterministic (no
+    // timing-dependent tie-break), and the repetition makes DEFLATE (level 1)
+    // compress markedly better than stored (level 0), so the size gap is
+    // unambiguous. Written descending so the sort has real reordering to do.
+    let mut records: Vec<RecordBuf> = (0..8000).map(|i| record("read", 1 + i * 7)).collect();
+    records.reverse();
+    write_bam(&input, &records);
+
+    let out0 = tmp.path().join("out0.bam");
+    let out1 = tmp.path().join("out1.bam");
+    for (out, level) in [(&out0, "0"), (&out1, "1")] {
+        let status = mako()
+            .args(["-i", input.to_str().unwrap()])
+            .args(["-o", out.to_str().unwrap()])
+            .args(["--order", "coordinate"])
+            // Tiny total memory budget forces multiple spills → the k-way merge
+            // writer, which is the output path the piped/uncompressed case uses.
+            .args(["--max-memory", "64K"])
+            .args(["--memory-per-thread", "false"])
+            .args(["--compression-level", level])
+            .status()
+            .unwrap();
+        assert!(status.success(), "mako exited non-zero at --compression-level {level}");
+    }
+
+    // Both levels must decode to the same, coordinate-sorted records: the output
+    // compression level must never change the records themselves.
+    let (_, recs0) = read_bam(&out0);
+    let (_, recs1) = read_bam(&out1);
+    assert_eq!(recs0, recs1, "level 0 and level 1 must decode to identical records");
+    assert_eq!(recs0.len(), records.len(), "record count must be preserved");
+    let positions: Vec<usize> = recs0.iter().map(|r| r.alignment_start().unwrap().get()).collect();
+    let mut sorted = positions.clone();
+    sorted.sort_unstable();
+    assert_eq!(positions, sorted, "records must be coordinate-sorted at level 0");
+
+    // The observable signal that the flag reached the BGZF writer: level-0
+    // (stored) output is materially larger than level-1 (DEFLATE) for this
+    // compressible data. Equal sizes would mean the level never took effect.
+    let size0 = std::fs::metadata(&out0).unwrap().len();
+    let size1 = std::fs::metadata(&out1).unwrap().len();
+    assert!(
+        size0 > size1,
+        "uncompressed (level 0, {size0} B) should exceed compressed (level 1, {size1} B)"
+    );
+}
