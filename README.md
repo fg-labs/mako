@@ -3,6 +3,7 @@
 > Fast SAM/BAM sorter.
 
 [![crates.io](https://img.shields.io/crates/v/fg-mako.svg)](https://crates.io/crates/fg-mako)
+[![Bioconda](https://img.shields.io/conda/vn/bioconda/fg-mako.svg?label=bioconda)](https://bioconda.github.io/recipes/fg-mako/README.html)
 [![CI](https://github.com/fg-labs/mako/actions/workflows/check.yml/badge.svg)](https://github.com/fg-labs/mako/actions/workflows/check.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
