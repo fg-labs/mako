@@ -6,6 +6,7 @@
 [![Bioconda](https://img.shields.io/conda/vn/bioconda/fg-mako.svg?label=bioconda)](https://bioconda.github.io/recipes/fg-mako/README.html)
 [![CI](https://github.com/fg-labs/mako/actions/workflows/check.yml/badge.svg)](https://github.com/fg-labs/mako/actions/workflows/check.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21446428.svg)](https://doi.org/10.5281/zenodo.21446428)
 
 `mako` is a focused, single-purpose command-line tool for sorting SAM and
 BAM files. It sorts by coordinate, queryname (lexicographic or natural),
