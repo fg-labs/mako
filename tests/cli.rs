@@ -354,42 +354,54 @@ fn sort_from_stdin_matches_file_input() {
 }
 
 // ---------------------------------------------------------------------------
-// Test 10: --verify rejects a non-seekable stdin stream with a clear message
+// Test 10: --verify works on a non-seekable stdin stream
 // ---------------------------------------------------------------------------
 
-/// `--verify` re-reads its input (header probe + a fresh record re-scan), which
-/// a non-seekable stdin stream can't satisfy, so it must be rejected up front
-/// with a message that mentions stdin — not fail cryptically deep in a re-open.
-/// Mirrors fgumi's `test_sort_verify_rejects_stdin_with_clear_message`; covers
-/// both `-` and `/dev/stdin` since the latter is a real, existing path.
+/// Run `cat input | mako --verify --order coordinate` reading from `input_arg`
+/// (`-` or `/dev/stdin`) and return whether mako exited 0.
+fn verify_from_piped_stdin(input: &Path, input_arg: &str) -> bool {
+    let cat = Command::new("cat")
+        .arg(input.to_str().unwrap())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("failed to spawn cat");
+    mako()
+        .args(["-i", input_arg])
+        .args(["--verify"])
+        .args(["--order", "coordinate"])
+        .stdin(cat.stdout.expect("cat stdout"))
+        .status()
+        .unwrap()
+        .success()
+}
+
+/// `--verify` checks sort order in a single streaming pass, so it works on a
+/// non-seekable pipe — it no longer needs to re-open its input, and no longer
+/// rejects stdin up front. Mirrors fgumi's single-pass verify.
+///
+/// Both directions are asserted so the pass is not vacuous: a sorted stream
+/// must exit 0 and an unsorted one must exit non-zero. Together they prove the
+/// stream was actually consumed and its order evaluated, rather than verify
+/// short-circuiting on an empty read. Both `-` and `/dev/stdin` are exercised
+/// because the latter is a real, existing path, so a stdin gate keyed only on
+/// the literal `-` would treat it differently.
 #[test]
-fn verify_rejects_stdin_input() {
+fn verify_accepts_stdin_input() {
     for input_arg in ["-", "/dev/stdin"] {
         let tmp = TempDir::new().unwrap();
-        let input = tmp.path().join("in.bam");
-        write_bam(&input, &[record("a", 500), record("b", 100), record("c", 300)]);
 
-        let cat = Command::new("cat")
-            .arg(input.to_str().unwrap())
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("failed to spawn cat");
-        let out = mako()
-            .args(["-i", input_arg])
-            .args(["--verify"])
-            .args(["--order", "coordinate"])
-            .stdin(cat.stdout.expect("cat stdout"))
-            .output()
-            .unwrap();
-
+        let sorted = tmp.path().join("sorted.bam");
+        write_bam(&sorted, &[record("a", 100), record("b", 300), record("c", 500)]);
         assert!(
-            !out.status.success(),
-            "--verify from stdin ({input_arg}) must be rejected, not succeed"
+            verify_from_piped_stdin(&sorted, input_arg),
+            "--verify on a sorted stream ({input_arg}) should exit 0"
         );
-        let stderr = String::from_utf8_lossy(&out.stderr);
+
+        let unsorted = tmp.path().join("unsorted.bam");
+        write_bam(&unsorted, &[record("a", 500), record("b", 100), record("c", 300)]);
         assert!(
-            stderr.contains("stdin"),
-            "--verify stdin ({input_arg}) rejection should mention stdin; stderr: {stderr}"
+            !verify_from_piped_stdin(&unsorted, input_arg),
+            "--verify on an unsorted stream ({input_arg}) should exit non-zero"
         );
     }
 }
