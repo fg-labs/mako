@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.4] - 2026-07-28
+
+### Bug Fixes
+
+- Stop suppressing every release entry ([#18](https://github.com/fg-labs/mako/pull/18))
+
+### Documentation
+
+- Add Bioconda badge ([#17](https://github.com/fg-labs/mako/pull/17))
+- Add Zenodo DOI badge ([#19](https://github.com/fg-labs/mako/pull/19))
+
+### Miscellaneous Tasks
+
+- Refine release-plz workflow and enable semver checks ([#14](https://github.com/fg-labs/mako/pull/14))
+- Bump fgumi to 0.5.0 ([#20](https://github.com/fg-labs/mako/pull/20))
+
+
+
 ## [0.1.3] - 2026-06-20
 
 ### Miscellaneous Tasks
