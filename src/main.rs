@@ -12,6 +12,23 @@ mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 
+/// Spilled sorted runs mako allows on disk before consolidating the oldest into
+/// one.
+///
+/// The engine defaults to 64 to match samtools. mako exists to sort whole-genome
+/// BAMs, which spill well past that, and a consolidation pass there is close to
+/// pure overhead: it rewrites already-sorted runs without making the final merge
+/// meaningfully cheaper, because the k-way merge is not sensitive to fan-in at
+/// these counts.
+///
+/// A 1.29B-read WGS BAM spills 93 runs at the default memory limit. Sorting it at
+/// 64 spends 117s consolidating and merges 62 runs in 344s; at 256 it consolidates
+/// nothing and merges all 93 in 336s — 14% less wall clock overall. 256 also keeps
+/// the merge's open-file count far below any reasonable descriptor limit, and
+/// leaves headroom above the observed 93 for larger inputs or a lower
+/// `--max-memory`.
+const DEFAULT_MAX_TEMP_FILES: usize = 256;
+
 /// Fast SAM/BAM sorter.
 ///
 /// `mako` is a focused, single-purpose sort utility for SAM/BAM files,
@@ -60,7 +77,11 @@ fn main() -> Result<()> {
     // consumes it.
     let command_line = std::env::args().collect::<Vec<_>>().join(" ");
 
-    let cli = Cli::parse();
+    let mut cli = Cli::parse();
+
+    // An explicit --max-temp-files always wins; absent one, mako's default
+    // replaces the engine's.
+    cli.sort.max_temp_files = cli.sort.max_temp_files.or(Some(DEFAULT_MAX_TEMP_FILES));
 
     // Default to warn-only so the sort engine's per-phase info logs don't
     // dominate the terminal. `-v`/`--verbose` opts in to info; `RUST_LOG`
