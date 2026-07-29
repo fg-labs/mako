@@ -25,12 +25,19 @@ use noodles::sam::{
 };
 use tempfile::TempDir;
 
-/// One reference, length 100_000. Sufficient to fit any toy test position.
+/// Length of the single reference every test BAM uses.
+///
+/// Must stay above the largest position any test generates. The consolidation
+/// tests are the binding case: they place one record at every position up to
+/// [`RECORDS_THAT_SPILL_PAST_64_RUNS`].
+const REFERENCE_LENGTH: usize = 200_000;
+
+/// One reference, [`REFERENCE_LENGTH`] long.
 fn build_header() -> sam::Header {
     sam::Header::builder()
         .add_reference_sequence(
             "chr1",
-            Map::<ReferenceSequence>::new(NonZeroUsize::new(100_000).unwrap()),
+            Map::<ReferenceSequence>::new(NonZeroUsize::new(REFERENCE_LENGTH).unwrap()),
         )
         .build()
 }
@@ -517,14 +524,24 @@ fn sort_and_count_consolidations(input: &Path, tmp: &TempDir, extra: &[&str]) ->
         .unwrap_or_else(|| panic!("no 'Temporary chunks:' line in mako output:\n{stderr}"));
     let consolidations = stderr.matches("Consolidating ").count();
 
-    // Consolidation must never drop or reorder records, whichever limit is in play.
+    // Whichever limit is in play, consolidation must preserve every record. The
+    // input positions are a permutation of `1..=RECORDS_THAT_SPILL_PAST_64_RUNS`
+    // (see `write_spilling_bam`), so correct output is exactly that sequence in
+    // order. Asserting against it catches a dropped, duplicated, or substituted
+    // record, none of which a count plus a monotonic-order check would notice.
     let (_, records) = read_bam(&output);
-    assert_eq!(records.len(), RECORDS_THAT_SPILL_PAST_64_RUNS, "record count must be preserved");
     let positions: Vec<usize> =
         records.iter().map(|r| r.alignment_start().unwrap().get()).collect();
-    let mut sorted = positions.clone();
-    sorted.sort_unstable();
-    assert_eq!(positions, sorted, "output must be coordinate-sorted with {extra:?}");
+    let expected: Vec<usize> = (1..=RECORDS_THAT_SPILL_PAST_64_RUNS).collect();
+    assert_eq!(positions.len(), expected.len(), "record count must be preserved with {extra:?}");
+    // Report the first divergence rather than asserting the vectors outright,
+    // which would dump 120_000 elements into the failure output.
+    if let Some(index) = positions.iter().zip(&expected).position(|(got, want)| got != want) {
+        panic!(
+            "output diverges at index {index}: got position {}, expected {} (with {extra:?})",
+            positions[index], expected[index]
+        );
+    }
 
     (runs, consolidations)
 }
@@ -533,11 +550,22 @@ fn sort_and_count_consolidations(input: &Path, tmp: &TempDir, extra: &[&str]) ->
 /// makes the engine's default and mako's distinguishable at all.
 const RECORDS_THAT_SPILL_PAST_64_RUNS: usize = 120_000;
 
+const _: () = assert!(
+    REFERENCE_LENGTH > RECORDS_THAT_SPILL_PAST_64_RUNS,
+    "every spilling-test position must land inside the reference"
+);
+
+/// Stride used to scramble the spilling BAM's positions.
+///
+/// Coprime with [`RECORDS_THAT_SPILL_PAST_64_RUNS`], which is what makes
+/// `i * STRIDE % count` a permutation of the whole range rather than a short
+/// cycle — so every position appears exactly once and the sort has no ties to
+/// break. That uniqueness is what lets the tests assert an exact output sequence.
+const POSITION_STRIDE: usize = 37;
+
 fn write_spilling_bam(path: &Path) {
-    // Positions stride by a coprime step so they are unique and thoroughly
-    // out of order, giving the sort real work and a deterministic key per record.
     let records: Vec<RecordBuf> = (0..RECORDS_THAT_SPILL_PAST_64_RUNS)
-        .map(|i| record("read", 1 + (i * 37) % 99_991))
+        .map(|i| record("read", 1 + (i * POSITION_STRIDE) % RECORDS_THAT_SPILL_PAST_64_RUNS))
         .collect();
     write_bam(path, &records);
 }
