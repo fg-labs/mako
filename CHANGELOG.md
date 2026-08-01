@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.5] - 2026-08-01
+
+### Performance
+
+- Raise the default --max-temp-files to 256 ([#21](https://github.com/fg-labs/mako/pull/21))
+
+
+
 ## [0.1.4] - 2026-07-28
 
 ### Bug Fixes
