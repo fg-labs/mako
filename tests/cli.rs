@@ -25,12 +25,19 @@ use noodles::sam::{
 };
 use tempfile::TempDir;
 
-/// One reference, length 100_000. Sufficient to fit any toy test position.
+/// Length of the single reference every test BAM uses.
+///
+/// Must stay above the largest position any test generates. The consolidation
+/// tests are the binding case: they place one record at every position up to
+/// [`RECORDS_THAT_SPILL_PAST_64_RUNS`].
+const REFERENCE_LENGTH: usize = 200_000;
+
+/// One reference, [`REFERENCE_LENGTH`] long.
 fn build_header() -> sam::Header {
     sam::Header::builder()
         .add_reference_sequence(
             "chr1",
-            Map::<ReferenceSequence>::new(NonZeroUsize::new(100_000).unwrap()),
+            Map::<ReferenceSequence>::new(NonZeroUsize::new(REFERENCE_LENGTH).unwrap()),
         )
         .build()
 }
@@ -475,5 +482,133 @@ fn compression_level_passthrough_level0_is_uncompressed() {
     assert!(
         size0 > size1,
         "uncompressed (level 0, {size0} B) should exceed compressed (level 1, {size1} B)"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Test 10: mako's raised --max-temp-files default
+// ---------------------------------------------------------------------------
+
+/// Coordinate-sort at a memory limit tiny enough to spill many runs, with debug
+/// logging on, and report what the engine did: `(runs spilled, consolidation
+/// passes)`.
+///
+/// Both numbers come from the engine's own log lines, so these tests observe the
+/// resolved limit's effect rather than any mako-side bookkeeping.
+fn sort_and_count_consolidations(input: &Path, tmp: &TempDir, extra: &[&str]) -> (usize, usize) {
+    let output = tmp.path().join("out.bam");
+    let temp_dir = tmp.path().join("spill");
+    std::fs::create_dir_all(&temp_dir).unwrap();
+
+    let out = mako()
+        .args(["-i", input.to_str().unwrap()])
+        .args(["-o", output.to_str().unwrap()])
+        .args(["--order", "coordinate"])
+        .args(["--max-memory", "64K"])
+        .args(["--memory-per-thread", "false"])
+        .args(["-T", temp_dir.to_str().unwrap()])
+        .args(extra)
+        // "Consolidating N temp files ..." is logged at debug; the run summary's
+        // "Temporary chunks: N" at info.
+        .env("RUST_LOG", "debug")
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "mako exited non-zero with {extra:?}");
+
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    let runs = stderr
+        .split("Temporary chunks: ")
+        .nth(1)
+        .and_then(|rest| rest.split_whitespace().next())
+        .and_then(|n| n.parse::<usize>().ok())
+        .unwrap_or_else(|| panic!("no 'Temporary chunks:' line in mako output:\n{stderr}"));
+    let consolidations = stderr.matches("Consolidating ").count();
+
+    // Whichever limit is in play, consolidation must preserve every record. The
+    // input positions are a permutation of `1..=RECORDS_THAT_SPILL_PAST_64_RUNS`
+    // (see `write_spilling_bam`), so correct output is exactly that sequence in
+    // order. Asserting against it catches a dropped, duplicated, or substituted
+    // record, none of which a count plus a monotonic-order check would notice.
+    let (_, records) = read_bam(&output);
+    let positions: Vec<usize> =
+        records.iter().map(|r| r.alignment_start().unwrap().get()).collect();
+    let expected: Vec<usize> = (1..=RECORDS_THAT_SPILL_PAST_64_RUNS).collect();
+    assert_eq!(positions.len(), expected.len(), "record count must be preserved with {extra:?}");
+    // Report the first divergence rather than asserting the vectors outright,
+    // which would dump 120_000 elements into the failure output.
+    if let Some(index) = positions.iter().zip(&expected).position(|(got, want)| got != want) {
+        panic!(
+            "output diverges at index {index}: got position {}, expected {} (with {extra:?})",
+            positions[index], expected[index]
+        );
+    }
+
+    (runs, consolidations)
+}
+
+/// Enough records that a 64K total budget spills well past 64 runs, which is what
+/// makes the engine's default and mako's distinguishable at all.
+const RECORDS_THAT_SPILL_PAST_64_RUNS: usize = 120_000;
+
+const _: () = assert!(
+    REFERENCE_LENGTH > RECORDS_THAT_SPILL_PAST_64_RUNS,
+    "every spilling-test position must land inside the reference"
+);
+
+/// Stride used to scramble the spilling BAM's positions.
+///
+/// Coprime with [`RECORDS_THAT_SPILL_PAST_64_RUNS`], which is what makes
+/// `i * STRIDE % count` a permutation of the whole range rather than a short
+/// cycle — so every position appears exactly once and the sort has no ties to
+/// break. That uniqueness is what lets the tests assert an exact output sequence.
+const POSITION_STRIDE: usize = 37;
+
+fn write_spilling_bam(path: &Path) {
+    let records: Vec<RecordBuf> = (0..RECORDS_THAT_SPILL_PAST_64_RUNS)
+        .map(|i| record("read", 1 + (i * POSITION_STRIDE) % RECORDS_THAT_SPILL_PAST_64_RUNS))
+        .collect();
+    write_bam(path, &records);
+}
+
+/// mako raises the engine's samtools-matching 64-run consolidation limit to 256.
+/// At a spill count between the two, that difference is directly observable: the
+/// engine would consolidate, mako must not.
+#[test]
+fn default_max_temp_files_skips_consolidation_that_64_would_trigger() {
+    let tmp = TempDir::new().unwrap();
+    let input = tmp.path().join("in.bam");
+    write_spilling_bam(&input);
+
+    let (runs, consolidations) = sort_and_count_consolidations(&input, &tmp, &[]);
+
+    // Guards the test against silently going vacuous: below 65 runs neither limit
+    // would consolidate and the assertion below would pass for the wrong reason.
+    assert!(
+        runs > 64,
+        "test only discriminates 256 from 64 if the sort spills more than 64 runs; got {runs}"
+    );
+    assert_eq!(
+        consolidations, 0,
+        "mako's 256-run default must not consolidate at {runs} runs (the engine's 64 would)"
+    );
+}
+
+/// The raised default must be a default, not an override: an explicit
+/// `--max-temp-files` still reaches the engine. Passing the engine's own 64 also
+/// pins that the sibling test's zero-consolidation result is caused by the limit
+/// and not by consolidation being unreachable on this input.
+#[test]
+fn explicit_max_temp_files_overrides_the_raised_default() {
+    let tmp = TempDir::new().unwrap();
+    let input = tmp.path().join("in.bam");
+    write_spilling_bam(&input);
+
+    let (runs, consolidations) =
+        sort_and_count_consolidations(&input, &tmp, &["--max-temp-files", "64"]);
+
+    assert!(runs > 64, "expected more than 64 spilled runs, got {runs}");
+    assert!(
+        consolidations > 0,
+        "--max-temp-files 64 must consolidate at {runs} runs, but mako reported none"
     );
 }

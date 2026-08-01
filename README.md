@@ -92,6 +92,8 @@ On a 30M-read WGS BAM, the engine sorts roughly 1.9× faster than
 `samtools sort` for template-coordinate order. See the fgumi
 documentation for detailed benchmarks and tuning guidance.
 
+`mako` raises one engine default: `--max-temp-files` is 256 rather than fgumi's samtools-matching 64. Large inputs spill many sorted runs, and consolidating them is close to pure overhead — it rewrites already-sorted data without making the final merge cheaper, because the k-way merge is insensitive to fan-in at these counts. On a 1.29B-read WGS BAM (93 spilled runs), sorting at 256 rather than 64 skips a 117-second consolidation pass and finishes 14% sooner. Pass `--max-temp-files` explicitly to override.
+
 ## Built on
 
 `mako` is a focused packaging of the SAM/BAM sort engine from
