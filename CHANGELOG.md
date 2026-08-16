@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.6] - 2026-08-16
+
+### Bug Fixes
+
+- Stop overriding the engine's --max-temp-files default ([#24](https://github.com/fg-labs/mako/pull/24))
+
+### Miscellaneous Tasks
+
+- Bump fgumi to 0.6.0 ([#26](https://github.com/fg-labs/mako/pull/26))
+
+
+
 ## [0.1.5] - 2026-08-01
 
 ### Performance
