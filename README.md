@@ -92,7 +92,7 @@ On a 30M-read WGS BAM, the engine sorts roughly 1.9× faster than
 `samtools sort` for template-coordinate order. See the fgumi
 documentation for detailed benchmarks and tuning guidance.
 
-`mako` overrides no engine defaults. `--max-temp-files` is whatever the fgumi it links against uses — 64 with the currently pinned fgumi 0.5.0, matching samtools. Consolidating spilled runs is close to pure overhead: it rewrites already-sorted data without making the final merge cheaper, since the k-way merge is insensitive to fan-in at these counts. On a 1.29B-read WGS BAM (93 spilled runs), a limit above the run count skips a 117-second consolidation pass and finishes 14% sooner — so pass `--max-temp-files` explicitly when sorting inputs that spill more runs than the default allows.
+`mako` overrides no engine defaults. Notably, `--max-temp-files` defaults to `auto`, which sizes the spilled-run consolidation limit from the process's own `RLIMIT_NOFILE` budget rather than to a fixed 64. Consolidating spilled runs is close to pure overhead: it rewrites already-sorted data without making the final merge cheaper, since the k-way merge is insensitive to fan-in at these counts. On a 1.29B-read WGS BAM (93 spilled runs), a limit above the run count skips a 117-second consolidation pass and finishes 14% sooner, and `auto` lands well above that run count on any host with a conventional `ulimit -n`. Pass a number to `--max-temp-files` to pin the limit instead; raise `ulimit -n` if the auto-sized one still falls below what your input spills.
 
 ## Built on
 

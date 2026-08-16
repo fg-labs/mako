@@ -486,34 +486,40 @@ fn compression_level_passthrough_level0_is_uncompressed() {
 }
 
 // ---------------------------------------------------------------------------
-// Test 10: --max-temp-files reaches the engine unmodified
+// Tests 12-13: --max-temp-files reaches the engine unmodified, set or unset
 // ---------------------------------------------------------------------------
 
-/// The spilled-run count from an engine log, in either the pre-0.6.0
-/// (`Temporary chunks: N`) or 0.6.0+ (`[N spills]`) spelling.
+/// The spilled-run count from an engine log line reading `... [N spills]`.
 fn spilled_runs(stderr: &str) -> Option<usize> {
-    if let Some(count) = stderr
-        .split("Temporary chunks: ")
-        .nth(1)
-        .and_then(|rest| rest.split_whitespace().next())
-        .and_then(|n| n.parse::<usize>().ok())
-    {
-        return Some(count);
-    }
-    // `... [N spills]`. The `filter` confirms the marker was actually present:
-    // `split` on a missing needle yields the whole string, which would otherwise
-    // fall through to parsing unrelated text.
+    // The `filter` confirms the marker was actually present: `split` on a missing
+    // needle yields the whole string, which would otherwise fall through to
+    // parsing unrelated text.
     let before_marker = stderr.split(" spills]").next().filter(|s| s.len() < stderr.len())?;
     before_marker.rsplit('[').next()?.trim().parse().ok()
 }
 
+/// The engine's `Max temp files: ...` configuration line, whose wording names
+/// where the limit in force came from.
+fn max_temp_files_line(stderr: &str) -> Option<&str> {
+    stderr.lines().find_map(|line| Some(line.split_once("Max temp files: ")?.1.trim()))
+}
+
+/// What one `mako` run did with its spill-file limit, read back from the
+/// engine's own log lines rather than from any mako-side bookkeeping.
+struct SpillReport {
+    /// Sorted runs the engine spilled to disk.
+    runs: usize,
+    /// Consolidation passes the engine performed over those runs.
+    consolidations: usize,
+    /// The `Max temp files:` line's payload — the resolved limit, plus the
+    /// provenance suffix the engine appends when it derived rather than was
+    /// handed the number.
+    limit: String,
+}
+
 /// Coordinate-sort at a memory limit tiny enough to spill many runs, with debug
-/// logging on, and report what the engine did: `(runs spilled, consolidation
-/// passes)`.
-///
-/// Both numbers come from the engine's own log lines, so these tests observe the
-/// resolved limit's effect rather than any mako-side bookkeeping.
-fn sort_and_count_consolidations(input: &Path, tmp: &TempDir, extra: &[&str]) -> (usize, usize) {
+/// logging on, and report what the engine did.
+fn sort_and_count_consolidations(input: &Path, tmp: &TempDir, extra: &[&str]) -> SpillReport {
     let output = tmp.path().join("out.bam");
     let temp_dir = tmp.path().join("spill");
     std::fs::create_dir_all(&temp_dir).unwrap();
@@ -526,21 +532,19 @@ fn sort_and_count_consolidations(input: &Path, tmp: &TempDir, extra: &[&str]) ->
         .args(["--memory-per-thread", "false"])
         .args(["-T", temp_dir.to_str().unwrap()])
         .args(extra)
-        // "Consolidating N temp files ..." is logged at debug; the run summary's
-        // "Temporary chunks: N" at info.
+        // "Consolidating N temp files ..." is logged at debug; the resolved
+        // limit and the phase breakdown's "[N spills]" at info.
         .env("RUST_LOG", "debug")
         .output()
         .unwrap();
     assert!(out.status.success(), "mako exited non-zero with {extra:?}");
 
     let stderr = String::from_utf8_lossy(&out.stderr);
-    // The engine reports its spilled-run count as `Temporary chunks: N` through
-    // fgumi 0.5.0 and as `[N spills]` in the phase breakdown from 0.6.0. mako is
-    // built against both (its crates.io pin, and the unreleased candidate that
-    // fgumi-benchmarks compiles it against via a path dependency), so read either
-    // rather than pinning the suite to one engine version's wording.
     let runs = spilled_runs(&stderr)
         .unwrap_or_else(|| panic!("no spilled-run count in mako output:\n{stderr}"));
+    let limit = max_temp_files_line(&stderr)
+        .unwrap_or_else(|| panic!("no temp-file limit line in mako output:\n{stderr}"))
+        .to_string();
     let consolidations = stderr.matches("Consolidating ").count();
 
     // Whichever limit is in play, consolidation must preserve every record. The
@@ -562,11 +566,16 @@ fn sort_and_count_consolidations(input: &Path, tmp: &TempDir, extra: &[&str]) ->
         );
     }
 
-    (runs, consolidations)
+    SpillReport { runs, consolidations, limit }
 }
 
-/// Enough records that a 64K total budget spills well past 64 runs, which is what
-/// makes the engine's default and mako's distinguishable at all.
+/// Enough records that a 64K total budget spills well past 64 runs.
+///
+/// 64 is the value both tests here are calibrated against: it is what an
+/// explicit `--max-temp-files 64` must be seen to consolidate at, and it sits
+/// far below any auto-sized limit a host with a conventional `ulimit -n`
+/// derives, so the default run's lack of consolidation is a real observation
+/// rather than a spill count too small to force one.
 const RECORDS_THAT_SPILL_PAST_64_RUNS: usize = 120_000;
 
 const _: () = assert!(
@@ -589,33 +598,70 @@ fn write_spilling_bam(path: &Path) {
     write_bam(path, &records);
 }
 
-// There is deliberately no test that the *default* limit is passed through.
-// mako no longer has an override to defeat — the substitution is deleted code —
-// and no assertion covers both engine versions mako is built against: fgumi
-// 0.5.0 (its crates.io pin) defaults to a fixed 64 and logs no temp-file
-// configuration line at all, while 0.6.0+ defaults to `auto`, resolves it from
-// `RLIMIT_NOFILE`, and reports that provenance. A test asserting 0.6.0's wording
-// fails on the pin; one weakened to pass on both is vacuous on it. Once the pin
-// moves to 0.6.0, assert on the `derived from RLIMIT_NOFILE` line.
+/// Omitting `--max-temp-files` leaves the engine's `auto` default in place.
+///
+/// mako used to substitute its own 256 here, and that substitution is now
+/// deleted code — this is the test that keeps it deleted. The engine's log line
+/// names its provenance, so `derived from RLIMIT_NOFILE` is the direct evidence
+/// that `auto` survived mako's flattened `Sort` struct: any mako-side default
+/// would arrive as a fixed number and be logged as a bare `Max temp files: N`.
+#[test]
+fn default_max_temp_files_is_the_engine_auto_setting() {
+    let tmp = TempDir::new().unwrap();
+    let input = tmp.path().join("in.bam");
+    write_spilling_bam(&input);
+
+    let report = sort_and_count_consolidations(&input, &tmp, &[]);
+
+    assert!(report.runs > 64, "expected more than 64 spilled runs, got {}", report.runs);
+    assert!(
+        report.limit.contains("derived from RLIMIT_NOFILE"),
+        "default run must use the engine's auto limit, but it reported `Max temp files: {}`",
+        report.limit
+    );
+
+    // The auto limit is sized from this host's descriptor budget, so whether it
+    // exceeds the spilled-run count is a property of the host rather than of
+    // mako. Assert the consequence only when it does — which is the case on any
+    // host with a conventional `ulimit -n`, and is the whole point of the
+    // setting: no consolidation pass at a run count that a fixed 64 would
+    // consolidate at (see the test below).
+    let resolved: usize = report
+        .limit
+        .split_whitespace()
+        .next()
+        .and_then(|n| n.parse().ok())
+        .unwrap_or_else(|| panic!("no limit number in `Max temp files: {}`", report.limit));
+    if resolved > report.runs {
+        assert_eq!(
+            report.consolidations, 0,
+            "a limit of {resolved} above {} spilled runs must not consolidate",
+            report.runs
+        );
+    }
+}
 
 /// An explicit `--max-temp-files` reaches the engine rather than being swallowed
 /// by mako's flattened `Sort` struct.
 ///
-/// Asserted by its effect: at a spill count above the limit the engine must
-/// consolidate. Passing 64 also keeps the assertion meaningful whatever the
-/// engine's own default is, since the input is built to spill past it.
+/// Asserted twice over: the engine logs the number it was handed, with no
+/// derived-limit suffix, and at a spill count above that number it consolidates.
+/// The log pins the exact value — the effect alone would also be produced by any
+/// other limit below the run count — while the effect confirms the value
+/// actually reached the sorter rather than only the log line.
 #[test]
 fn explicit_max_temp_files_reaches_the_engine() {
     let tmp = TempDir::new().unwrap();
     let input = tmp.path().join("in.bam");
     write_spilling_bam(&input);
 
-    let (runs, consolidations) =
-        sort_and_count_consolidations(&input, &tmp, &["--max-temp-files", "64"]);
+    let report = sort_and_count_consolidations(&input, &tmp, &["--max-temp-files", "64"]);
 
-    assert!(runs > 64, "expected more than 64 spilled runs, got {runs}");
+    assert_eq!(report.limit, "64", "engine must report exactly the limit mako was passed");
+    assert!(report.runs > 64, "expected more than 64 spilled runs, got {}", report.runs);
     assert!(
-        consolidations > 0,
-        "--max-temp-files 64 must consolidate at {runs} runs, but mako reported none"
+        report.consolidations > 0,
+        "--max-temp-files 64 must consolidate at {} runs, but mako reported none",
+        report.runs
     );
 }
