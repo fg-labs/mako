@@ -133,9 +133,9 @@ checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
 name = "bgzf"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ef1d1b6f6e93db458101ebf6367223be5a52f5d48cbfd79ccb23939452cda86"
+checksum = "27c64c8bf3975478be6ec69e474850d87b00c2d583ddf536eff531ed02c57ab6"
 dependencies = [
  "byteorder",
  "bytes",
@@ -151,10 +151,11 @@ checksum = "5e764a1d40d510daf35e07be9eb06e75770908c27d411ee6c92109c9840eaaf7"
 
 [[package]]
 name = "bit-vec"
-version = "0.9.1"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b71798fca2c1fe1086445a7258a4bc81e6e49dcd24c8d0dd9a1e57395b603f51"
+checksum = "5727b15fa97d4f4fee0a3b7c3d550ed0269f54329207b86388de918604e31269"
 dependencies = [
+ "borsh",
  "serde",
 ]
 
@@ -169,6 +170,30 @@ name = "bitflags"
 version = "2.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
+
+[[package]]
+name = "borsh"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a88b7ea17d208c4193f2c1e6de3c35fe71f98c96982d5ced308bdcc749ff6e1f"
+dependencies = [
+ "borsh-derive",
+ "bytes",
+ "cfg_aliases",
+]
+
+[[package]]
+name = "borsh-derive"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8f347189c62a579b8cd5f80714efa178f52e461dc2e6d701d264f5ff22e566c"
+dependencies = [
+ "once_cell",
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
 
 [[package]]
 name = "bstr"
@@ -590,9 +615,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21e961bb7fe14cfad7aeaa495360781501cc6aa87c08392f85b61108776a6623"
+checksum = "04e0a21f6d8ac2509a988efc7f3f86b1de06f5d4b4eec8735c40c3ddfcc8dbcf"
 dependencies = [
  "ahash",
  "anyhow",
@@ -633,8 +658,8 @@ dependencies = [
  "memchr",
  "mimalloc",
  "nix",
- "noodles 0.111.0",
- "noodles-bgzf 0.47.0",
+ "noodles 0.115.0",
+ "noodles-bgzf 0.51.0",
  "num_cpus",
  "parking_lot",
  "rand 0.10.2",
@@ -650,9 +675,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-bam-io"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51b4f46891e2198fe756e9f12028bb2df87a50c57a99c90ddb39235cdb529bad"
+checksum = "04e0709c4e2e167cca52c78277bf2693b65b077654f1bd9e62d1bd428410b280"
 dependencies = [
  "anyhow",
  "bgzf",
@@ -664,16 +689,16 @@ dependencies = [
  "flate2",
  "log",
  "nix",
- "noodles 0.111.0",
- "noodles-bgzf 0.47.0",
- "noodles-csi 0.56.0",
+ "noodles 0.115.0",
+ "noodles-bgzf 0.51.0",
+ "noodles-csi 0.60.0",
 ]
 
 [[package]]
 name = "fgumi-bgzf"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34822079a8dbd8855d8cfc23ad6401d1b5f2ec8cae99965da98f890934e271d2"
+checksum = "944b7a43e0c3633fa939598686ae8bdc5117799f4e2dae2180dce9d0dc115ce6"
 dependencies = [
  "bgzf",
  "crc32fast",
@@ -682,9 +707,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-consensus"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d44cbe37ceb592aef15444ac2dccd11b678af7a5f194a1e8bb8cadd76c141fe"
+checksum = "17dc2b6726ef5800db9d6345d46fb8784e6b902e9182172786e8ddf47324ff6b"
 dependencies = [
  "ahash",
  "anyhow",
@@ -695,50 +720,51 @@ dependencies = [
  "fgumi-raw-bam",
  "fgumi-sam",
  "log",
- "noodles 0.111.0",
+ "noodles 0.115.0",
  "thiserror 2.0.20",
  "wide 1.6.1",
 ]
 
 [[package]]
 name = "fgumi-dna"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "675f8990f70f28a742055e9fb4d2f6b796eb16827426a8e375723110f80740c6"
+checksum = "2ee1a0bb6e3405dfd48b182e1b878d28928f6f072632d1aea0e5a90354193a6d"
 
 [[package]]
 name = "fgumi-metrics"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0408a2f2017738fdddf27408cb8172caf4381e55d5a39bcf821de34d7eb11b5"
+checksum = "6ed095bbb61dda40d8672871038082dd51d3fbeee718f604b01d4883df243bfd"
 dependencies = [
  "anyhow",
  "fgoxide",
  "fgumi-raw-bam",
- "noodles 0.111.0",
+ "noodles 0.115.0",
  "serde",
  "tempfile",
 ]
 
 [[package]]
 name = "fgumi-raw-bam"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e128980ffe6814d18198203cabe4ffd6fe99e12a5ac64f3c5a9f2abedf46e785"
+checksum = "937009bb5a16c1e2f699ff2a8c75b5dbce7f7ab483e52b0499f40ff5f3c68afa"
 dependencies = [
  "anyhow",
  "bytemuck",
  "fgumi-dna",
  "fgumi-tag",
- "noodles 0.111.0",
+ "memchr",
+ "noodles 0.115.0",
  "wide 1.6.1",
 ]
 
 [[package]]
 name = "fgumi-sam"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15174957aa204096689755c48e6fd3ea77047db671357a6f736f670e22972d9b"
+checksum = "fa3044fa712d5ee80fbb893d5dce3e52a5e7e753a3f68f229ffe512dce3a91f7"
 dependencies = [
  "anyhow",
  "bstr 1.13.1",
@@ -747,21 +773,21 @@ dependencies = [
  "fgumi-raw-bam",
  "fgumi-tag",
  "log",
- "noodles 0.111.0",
+ "noodles 0.115.0",
  "tempfile",
 ]
 
 [[package]]
 name = "fgumi-simd-fastq"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15c0470b4f813dac44c00df4e54208dd6f5f0f17e7d6ae26a65c6d07549fa244"
+checksum = "c3ef322b766915a9b6158cf4879b91abf98a70267d0d0694ad0493364c873c46"
 
 [[package]]
 name = "fgumi-sort"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2e918e4e549bcd7970e59602d9b6fbb8509cbe63070f4b5b7221c439deb5bb6"
+checksum = "b0e5591febe66525d4ad27e1f8144e208b01127e30edf3adcb4b5199fed15998"
 dependencies = [
  "ahash",
  "anyhow",
@@ -782,8 +808,8 @@ dependencies = [
  "log",
  "mach2",
  "nix",
- "noodles 0.111.0",
- "noodles-bgzf 0.47.0",
+ "noodles 0.115.0",
+ "noodles-bgzf 0.51.0",
  "parking_lot",
  "rayon",
  "rustix",
@@ -793,19 +819,19 @@ dependencies = [
 
 [[package]]
 name = "fgumi-tag"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7c1acb9d5251cd114872e45b3d54a3a7e4ad517be3c5e0671559530089ecfe3"
+checksum = "2c5f5d447ae9762f6e76072f89cba4820e9ef2e944bfce93bd002b43519c8b5f"
 dependencies = [
  "anyhow",
- "noodles 0.111.0",
+ "noodles 0.115.0",
 ]
 
 [[package]]
 name = "fgumi-umi"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "326706eba85920d0d809e3357800b54adba130d4861a0537d4eb32e2239d507a"
+checksum = "0df75056c33200988f6a6752ee592bf18af71209ecda6191713c0f0458c65878"
 dependencies = [
  "ahash",
  "anyhow",
@@ -1454,16 +1480,16 @@ dependencies = [
 
 [[package]]
 name = "noodles"
-version = "0.111.0"
+version = "0.115.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78906b00d2b2d144c920567724ab0dc68ef8da7fc258ef18da86bbbec572000e"
+checksum = "5ef86cb036ab589c660e76bc6d7741454fe8ff71ba3348f71812936f5c1a43f6"
 dependencies = [
- "noodles-bam 0.90.0",
- "noodles-bgzf 0.47.0",
+ "noodles-bam 0.94.0",
+ "noodles-bgzf 0.51.0",
  "noodles-core 0.20.0",
- "noodles-csi 0.56.0",
+ "noodles-csi 0.60.0",
  "noodles-fasta",
- "noodles-sam 0.85.0",
+ "noodles-sam 0.89.0",
  "noodles-vcf",
 ]
 
@@ -1484,17 +1510,17 @@ dependencies = [
 
 [[package]]
 name = "noodles-bam"
-version = "0.90.0"
+version = "0.94.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d319ea3e4414172455eec82f0283ae3fc6a5a8e9b23bdc16ee426986a615094"
+checksum = "e018289a9da86771349be387224f6634ad56ec48eb16a3a29a7670def5d206c2"
 dependencies = [
  "bstr 1.13.1",
  "indexmap",
  "memchr",
- "noodles-bgzf 0.47.0",
+ "noodles-bgzf 0.51.0",
  "noodles-core 0.20.0",
- "noodles-csi 0.56.0",
- "noodles-sam 0.85.0",
+ "noodles-csi 0.60.0",
+ "noodles-sam 0.89.0",
 ]
 
 [[package]]
@@ -1510,13 +1536,14 @@ dependencies = [
 
 [[package]]
 name = "noodles-bgzf"
-version = "0.47.0"
+version = "0.51.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d22589ec50582fa0c3e629d27e5263fc5ff5d436955648ba601b7ac4155fbf2"
+checksum = "280d401d0358893ad706fb6094a18e7f9e8f3002630f4960889cb702b6e2714e"
 dependencies = [
  "bytes",
  "crossbeam-channel",
  "libdeflater",
+ "rayon",
  "zlib-rs",
 ]
 
@@ -1553,26 +1580,26 @@ dependencies = [
 
 [[package]]
 name = "noodles-csi"
-version = "0.56.0"
+version = "0.60.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6832254d731cb022d46927ce64403221b280b17140516cafa21e43ee4140d633"
+checksum = "32789eeba9c4001d50de853a4c6a8f0551d586a91d6919c0008dd462231feacb"
 dependencies = [
- "bit-vec 0.9.1",
+ "bit-vec 0.10.1",
  "bstr 1.13.1",
  "indexmap",
- "noodles-bgzf 0.47.0",
+ "noodles-bgzf 0.51.0",
  "noodles-core 0.20.0",
 ]
 
 [[package]]
 name = "noodles-fasta"
-version = "0.62.0"
+version = "0.66.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c36aecf3899ba8ca698bddee3c7264d6e70afca6620524ece230d2c34b93021b"
+checksum = "da0263cded3c76c5ddc6d36b805e68e512e6f474a56b9855c7ef37cb69a3fb65"
 dependencies = [
  "bstr 1.13.1",
  "memchr",
- "noodles-bgzf 0.47.0",
+ "noodles-bgzf 0.51.0",
  "noodles-core 0.20.0",
 ]
 
@@ -1594,44 +1621,44 @@ dependencies = [
 
 [[package]]
 name = "noodles-sam"
-version = "0.85.0"
+version = "0.89.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbaf538bea4f886de8b3fb611784a13f82c9f8e08e942849e88ec44234674512"
+checksum = "8063dd9e92825db46ae21813525589d41cff9ce2dcb2a0d25d99af86b274a1c5"
 dependencies = [
  "bitflags 2.13.1",
  "bstr 1.13.1",
  "indexmap",
  "lexical-core",
  "memchr",
- "noodles-bgzf 0.47.0",
+ "noodles-bgzf 0.51.0",
  "noodles-core 0.20.0",
- "noodles-csi 0.56.0",
+ "noodles-csi 0.60.0",
 ]
 
 [[package]]
 name = "noodles-tabix"
-version = "0.62.0"
+version = "0.66.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5dceef2f7228d2977133f7b1a707c00ce0fdcf7c171e60b1e0286df0d8886fe"
+checksum = "52c0b2afdd167cb7943f8e655ac9f37d4403b93b978fe8d192faece39d844cbc"
 dependencies = [
  "bstr 1.13.1",
  "indexmap",
- "noodles-bgzf 0.47.0",
+ "noodles-bgzf 0.51.0",
  "noodles-core 0.20.0",
- "noodles-csi 0.56.0",
+ "noodles-csi 0.60.0",
 ]
 
 [[package]]
 name = "noodles-vcf"
-version = "0.88.0"
+version = "0.92.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "234b3ba31b05ffd6971d838a41ca5a94e902d424ab293cd3b520776293baa96c"
+checksum = "59ba2606faec4bee364b0143191d7dbfd9357d61a1ad65651a58b42df540b9cb"
 dependencies = [
  "indexmap",
  "memchr",
- "noodles-bgzf 0.47.0",
+ "noodles-bgzf 0.51.0",
  "noodles-core 0.20.0",
- "noodles-csi 0.56.0",
+ "noodles-csi 0.60.0",
  "noodles-tabix",
  "percent-encoding",
 ]
@@ -1870,6 +1897,15 @@ checksum = "d0de1b847b39c8131db0467e9df1ff60e6d0562ab8e9a16e568ad0fdb372e2f2"
 dependencies = [
  "predicates-core",
  "termtree",
+]
+
+[[package]]
+name = "proc-macro-crate"
+version = "3.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e67ba7e9b2b56446f1d419b1d807906278ffa1a658a8a5d8a39dcb1f5a78614f"
+dependencies = [
+ "toml_edit",
 ]
 
 [[package]]
@@ -2416,6 +2452,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml_edit"
+version = "0.25.13+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6975367e4d2ef766d86af01ffad14b622fecc8d4357a998fbc4deb6e9bacaf9b"
+dependencies = [
+ "indexmap",
+ "toml_datetime",
+ "toml_parser",
+ "winnow",
+]
+
+[[package]]
 name = "toml_parser"
 version = "1.1.3+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2713,6 +2761,9 @@ name = "winnow"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b97319f7b8343df12cc98938e5c3eb436064524c8d2b4e30a1d3a36eecdf81"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "wit-bindgen"

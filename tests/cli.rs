@@ -531,9 +531,12 @@ fn sort_and_count_consolidations(input: &Path, tmp: &TempDir, extra: &[&str]) ->
         .args(["--max-memory", "64K"])
         .args(["--memory-per-thread", "false"])
         .args(["-T", temp_dir.to_str().unwrap()])
+        // fgumi 0.7.0 (PR #826) moved the phase breakdown -- including the
+        // "[N spills]" line this test scrapes -- behind this hidden flag,
+        // off by default. "Consolidating N temp files ..." is logged at
+        // debug regardless; the resolved limit at info.
+        .args(["--sort-stats"])
         .args(extra)
-        // "Consolidating N temp files ..." is logged at debug; the resolved
-        // limit and the phase breakdown's "[N spills]" at info.
         .env("RUST_LOG", "debug")
         .output()
         .unwrap();
