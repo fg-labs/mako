@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.7] - 2026-08-25
+
+### Miscellaneous Tasks
+
+- Add dependabot for cargo deps, daily ([#29](https://github.com/fg-labs/mako/pull/29))
+- Bump fgumi to 0.7.0 ([#28](https://github.com/fg-labs/mako/pull/28))
+
+
+
 ## [0.1.6] - 2026-08-16
 
 ### Bug Fixes
