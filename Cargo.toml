@@ -27,7 +27,7 @@ mimalloc = { version = "0.1", default-features = false }
 
 [dev-dependencies]
 assert_cmd = "2"
-noodles = { version = "0.106", features = ["bam", "core", "sam"] }
+noodles = { version = "0.115", features = ["bam", "core", "sam"] }
 predicates = "3"
 tempfile = "3"
 
