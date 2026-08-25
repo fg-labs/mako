@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # Maintain dependencies for Cargo (one PR per dependency, so a fgumi bump
+  # opens on its own rather than getting bundled with unrelated deps).
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 5
+
+  # Maintain dependencies for GitHub Actions
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      all-actions:
+        patterns: ["*"]
