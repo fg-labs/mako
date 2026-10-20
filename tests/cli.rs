@@ -489,13 +489,11 @@ fn compression_level_passthrough_level0_is_uncompressed() {
 // Tests 12-13: --max-temp-files reaches the engine unmodified, set or unset
 // ---------------------------------------------------------------------------
 
-/// The spilled-run count from an engine log line reading `... [N spills]`.
+/// The spilled-run count from the engine's `Spill runs: N from C chunks ...` line.
 fn spilled_runs(stderr: &str) -> Option<usize> {
-    // The `filter` confirms the marker was actually present: `split` on a missing
-    // needle yields the whole string, which would otherwise fall through to
-    // parsing unrelated text.
-    let before_marker = stderr.split(" spills]").next().filter(|s| s.len() < stderr.len())?;
-    before_marker.rsplit('[').next()?.trim().parse().ok()
+    stderr
+        .lines()
+        .find_map(|line| line.split_once("Spill runs: ")?.1.split_whitespace().next()?.parse().ok())
 }
 
 /// The engine's `Max temp files: ...` configuration line, whose wording names
@@ -531,11 +529,9 @@ fn sort_and_count_consolidations(input: &Path, tmp: &TempDir, extra: &[&str]) ->
         .args(["--max-memory", "64K"])
         .args(["--memory-per-thread", "false"])
         .args(["-T", temp_dir.to_str().unwrap()])
-        // fgumi 0.7.0 (PR #826) moved the phase breakdown -- including the
-        // "[N spills]" line this test scrapes -- behind this hidden flag,
-        // off by default. "Consolidating N temp files ..." is logged at
-        // debug regardless; the resolved limit at info.
-        .args(["--sort-stats"])
+        // fgumi 0.8.0 logs the spilled-run count ("Spill runs: N ..."), each
+        // consolidation ("Consolidating N spill runs ...") and the resolved
+        // limit at info, with no extra flag.
         .args(extra)
         .env("RUST_LOG", "debug")
         .output()
