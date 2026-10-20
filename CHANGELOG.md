@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.8] - 2026-10-20
+
+### Miscellaneous Tasks
+
+- Bump fgumi to 0.8.0 ([#34](https://github.com/fg-labs/mako/pull/34))
+
+
+
 ## [0.1.7] - 2026-08-25
 
 ### Miscellaneous Tasks
