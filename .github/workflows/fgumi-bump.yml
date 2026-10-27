@@ -1,0 +1,535 @@
+name: fgumi bump
+
+# Nightly check for a new fgumi release on crates.io. On finding one, bump the
+# pin in Cargo.toml and Cargo.lock, run the local checks, and open a PR with
+# the check results and the fgumi release notes. If any check fails, the PR
+# opens as a draft with the failure logs: past bumps usually needed
+# tests/cli.rs updates for changed engine log lines, so the PR is the
+# worklist. Push fixes onto its branch. If the bump itself fails (the version
+# is not on crates.io, or Cargo cannot resolve it), the run goes red and no
+# PR is opened.
+#
+# Three jobs, so the one that builds and tests the new, unreviewed fgumi
+# release and its dependencies never holds a write token: its build scripts
+# could otherwise push, or plant a git hook or a script that a later
+# token-holding step runs. It hands only Cargo.toml, Cargo.lock and the check
+# results to the job that pushes, which redoes the bump itself and opens no PR
+# unless the build job's Cargo.toml and Cargo.lock match its own.
+#
+# GitHub disables scheduled workflows after 60 days of repo inactivity;
+# workflow_dispatch is the fallback, and the schedule can be re-enabled from
+# the Actions tab. Dependabot ignores fgumi (see .github/dependabot.yml), so
+# this workflow is the only automated fgumi bump.
+on:
+  schedule:
+    # 09:23 UTC. Off the hour so we are not in the thundering herd.
+    - cron: '23 9 * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Bump to this fgumi version (e.g. 0.9.0) instead of the latest. Retries a release whose bump PR was closed.'
+        required: false
+        type: string
+      dry_run:
+        description: 'Bump, run the checks, and build the PR body into the run summary; push and open nothing.'
+        required: false
+        default: false
+        type: boolean
+
+# One at a time: a manual dispatch must not race the cron.
+concurrency:
+  group: fgumi-bump
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # The check logs are pasted into the PR body, where ANSI escapes are noise.
+  CARGO_TERM_COLOR: never
+  BRANCH_PREFIX: chore/bump-fgumi-
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    # Never run on forks: they hold neither the App secrets nor a reason to.
+    if: ${{ github.repository_owner == 'fg-labs' }}
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      current: ${{ steps.detect.outputs.current }}
+      latest: ${{ steps.detect.outputs.latest }}
+      branch: ${{ steps.detect.outputs.branch }}
+      proceed: ${{ steps.existing.outputs.proceed }}
+      orphan_sha: ${{ steps.existing.outputs.orphan_sha }}
+      bot_email: ${{ steps.existing.outputs.bot_email }}
+    steps:
+      # Always main, whichever branch a dispatch was started from: the PR
+      # targets main.
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Detect a newer release
+        id: detect
+        env:
+          # Through env, not spliced into the script text.
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          source scripts/fgumi-bump-helpers.sh
+          current="$(sed -nE 's/^fgumi = "([^"]+)"$/\1/p' Cargo.toml)"
+          if ! is_version "$current"; then
+            echo "::error::expected a \`fgumi = \"X.Y.Z\"\` line in Cargo.toml, found '$current'"
+            exit 1
+          fi
+
+          if [ -n "$VERSION" ]; then
+            if ! is_version "$VERSION"; then
+              echo "::error::version input '$VERSION' is not X.Y.Z"
+              exit 1
+            fi
+            latest="$VERSION"
+          else
+            # crates.io rejects requests without a User-Agent.
+            latest="$(curl -fsSL --retry 3 \
+                        -H "User-Agent: ${{ github.repository }} fgumi-bump workflow" \
+                        https://crates.io/api/v1/crates/fgumi \
+                      | jq -r '.crate.max_stable_version')"
+            if ! is_version "$latest"; then
+              echo "::error::crates.io returned an unexpected max_stable_version: '$latest'"
+              exit 1
+            fi
+          fi
+
+          # Only move forward: a dispatch naming an older version is a mistake,
+          # and so is crates.io reporting one (e.g. the latest was yanked).
+          if gt "$latest" "$current"; then
+            needs_bump=true
+            echo "fgumi $current -> $latest" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            needs_bump=false
+            if [ -n "$VERSION" ]; then
+              echo "Requested fgumi $latest is not newer than the pinned $current; nothing to do." | tee -a "$GITHUB_STEP_SUMMARY"
+            else
+              echo "fgumi $current is current." | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+
+          {
+            echo "current=$current"
+            echo "latest=$latest"
+            echo "needs_bump=$needs_bump"
+            echo "branch=$BRANCH_PREFIX$latest"
+          } >> "$GITHUB_OUTPUT"
+
+      # The branch name matches what a human bump uses, so a bump already
+      # opened by hand is found here too. On the nightly, a PR in any state
+      # blocks: a CLOSED unmerged PR means the release was declined, and with
+      # only open PRs counted we would reopen it every night. A dispatch that
+      # names a version is a human asking for that release, so only an OPEN
+      # PR blocks it.
+      #
+      # A branch with no PR is either a human's work in progress (left alone,
+      # with a warning) or the bot's own leftover from a run that pushed and
+      # was cancelled before opening the PR. The bot's leftover is replaced,
+      # so that run does not block the release forever.
+      - name: Check for an existing PR or branch
+        id: existing
+        if: steps.detect.outputs.needs_bump == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.detect.outputs.branch }}
+          VERSION: ${{ inputs.version }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          # The noreply address is built from the bot USER id (not the App id)
+          # so GitHub attributes the commit to the bot account.
+          bot_user_id="$(gh api "/users/fg-labs-bot%5Bbot%5D" --jq .id)"
+          bot_email="${bot_user_id}+fg-labs-bot[bot]@users.noreply.github.com"
+          echo "bot_email=$bot_email" >> "$GITHUB_OUTPUT"
+
+          if [ -n "$VERSION" ]; then
+            blocking='select(.state == "OPEN")'
+          else
+            blocking='.'
+          fi
+          # --head matches the branch name in any repo, so a fork PR from a
+          # same-named branch is filtered out here.
+          found="$(gh pr list --head "$BRANCH" --state all --json number,state,headRepositoryOwner \
+                     --jq "[.[] | select(.headRepositoryOwner.login == \$ENV.OWNER) | $blocking]
+                           | .[0] | select(.) | \"#\(.number) (\(.state))\"")"
+
+          orphan_sha=""
+          if [ -z "$found" ] && git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null; then
+            git fetch --quiet --depth=1 origin "refs/heads/$BRANCH"
+            author="$(git log -1 --format=%ae FETCH_HEAD)"
+            if [ "$author" = "$bot_email" ]; then
+              orphan_sha="$(git rev-parse FETCH_HEAD)"
+              echo "::warning::Replacing $BRANCH ($orphan_sha), left without a PR by an earlier run."
+            else
+              found="branch $BRANCH with no PR, last commit by $author"
+              echo "::warning::$BRANCH exists with no PR and was not pushed by this workflow. Open a PR from it or delete it."
+            fi
+          fi
+          echo "orphan_sha=$orphan_sha" >> "$GITHUB_OUTPUT"
+
+          if [ -n "$found" ]; then
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            echo "Already handled: $found. Nothing to do." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # No token beyond a read-only GITHUB_TOKEN, and no credentials persisted.
+  build:
+    needs: detect
+    if: needs.detect.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      failed: ${{ steps.checks.outputs.failed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        # rust-toolchain.toml pins the version and its clippy/rustfmt components.
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+
+      - name: Bump fgumi
+        env:
+          LATEST: ${{ needs.detect.outputs.latest }}
+        run: |
+          set -euo pipefail
+          source scripts/fgumi-bump-helpers.sh
+          if ! bump_fgumi "$LATEST"; then
+            echo "::error::bumping fgumi to $LATEST failed; see the log above. No PR was opened."
+            exit 1
+          fi
+          # Saved before the checks run. The checks' build scripts can still
+          # rewrite this copy, so the pr job redoes the bump and requires this
+          # copy to match it; this job's files are never committed.
+          out="$RUNNER_TEMP/bump"
+          mkdir -p "$out/logs"
+          cp Cargo.toml Cargo.lock "$out/"
+
+      # Each check runs to completion and records its outcome rather than
+      # failing the job: a failing check is the expected case for a bump that
+      # needs adaptation, and it still gets a PR. These are check.yml's checks
+      # minus cargo audit and the macOS leg; CI on the PR is authoritative.
+      - name: Run checks
+        id: checks
+        run: |
+          set -uo pipefail
+          out="$RUNNER_TEMP/bump"
+          failed=false
+          : > "$out/checks.md"
+          : > "$out/checks-short.md"
+          # run_check NAME CMD...: run CMD, record the outcome, and on failure
+          # append the tail of its log. A tilde fence, so a log line holding
+          # a backtick fence cannot close it.
+          run_check() {
+            local name="$1"; shift
+            local log="$out/logs/$name.log"
+            if "$@" > "$log" 2>&1; then
+              echo "- \`$*\`: passed" | tee -a "$out/checks-short.md" >> "$out/checks.md"
+            else
+              failed=true
+              echo "- \`$*\`: **failed**" | tee -a "$out/checks-short.md" >> "$out/checks.md"
+              {
+                echo
+                echo '  <details><summary>last 40 lines</summary>'
+                echo
+                echo '  ~~~~'
+                tail -40 "$log" | cut -c1-300 | sed 's/^/  /'
+                echo '  ~~~~'
+                echo
+                echo '  </details>'
+              } >> "$out/checks.md"
+            fi
+          }
+          run_check fmt cargo ci-fmt
+          run_check lint cargo ci-lint
+          run_check test cargo ci-test
+          RUSTDOCFLAGS="-D warnings" run_check doc cargo doc --no-deps
+          run_check publish cargo publish --dry-run --allow-dirty
+          echo "failed=$failed" >> "$GITHUB_OUTPUT"
+          cat "$out/checks.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the bump and check logs
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fgumi-bump
+          path: ${{ runner.temp }}/bump/
+          if-no-files-found: error
+
+  pr:
+    needs: [detect, build]
+    if: needs.detect.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Download the bump
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: fgumi-bump
+          path: ${{ runner.temp }}/bump
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+
+      # The build job ran the new fgumi's build scripts, which could have
+      # rewritten its copy of the bump. So the committed Cargo.toml and
+      # Cargo.lock come from this job, which only resolves versions and runs
+      # no build scripts, and must match the build job's copy: otherwise the
+      # checks did not test what would be committed.
+      - name: Bump fgumi and match the build job's bump
+        env:
+          LATEST: ${{ needs.detect.outputs.latest }}
+        run: |
+          set -euo pipefail
+          source scripts/fgumi-bump-helpers.sh
+          if ! bump_fgumi "$LATEST"; then
+            echo "::error::bumping fgumi to $LATEST failed; see the log above. No PR was opened."
+            exit 1
+          fi
+          for f in Cargo.toml Cargo.lock; do
+            if ! cmp -s "$f" "$RUNNER_TEMP/bump/$f"; then
+              echo "::error::$f differs from the build job's copy, so the checks may not have tested it. No PR was opened."
+              diff -u "$f" "$RUNNER_TEMP/bump/$f" | head -100 || true
+              exit 1
+            fi
+          done
+
+      # Best effort: the notes are a convenience, so a GitHub API failure
+      # here leaves a link to the releases page rather than failing the bump.
+      # Writes one file per release after the current pin up to and including
+      # the new one, named so a version sort orders them oldest first.
+      - name: Collect fgumi release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT: ${{ needs.detect.outputs.current }}
+          LATEST: ${{ needs.detect.outputs.latest }}
+        run: |
+          set -euo pipefail
+          source scripts/fgumi-bump-helpers.sh
+          notes="$RUNNER_TEMP/notes"
+          mkdir -p "$notes"
+          if ! gh api --paginate repos/fulcrumgenomics/fgumi/releases \
+                 --jq '.[] | select(.draft == false and .prerelease == false) | @base64' \
+                 > "$RUNNER_TEMP/releases.b64"; then
+            echo "::warning::could not list fgumi releases; the PR will link to the releases page instead."
+            exit 0
+          fi
+          while read -r row; do
+            release="$(echo "$row" | base64 -d)"
+            v="$(jq -r .tag_name <<< "$release")"
+            v="${v#v}"
+            if ! is_version "$v" || ! gt "$v" "$CURRENT" || gt "$v" "$LATEST"; then
+              continue
+            fi
+            jq -r .html_url <<< "$release" > "$notes/$v.url"
+            # A release with no description has a null body.
+            jq -r '.body // ""' <<< "$release" > "$notes/$v.md"
+          done < "$RUNNER_TEMP/releases.b64"
+
+      # Runs on dry runs too, so the body is built (and shown in the run
+      # summary) by the same code a real run uses. The commit is local: the
+      # PR body records its sha, so it must exist before the body is written.
+      - name: Commit and build the PR body
+        id: body
+        env:
+          CURRENT: ${{ needs.detect.outputs.current }}
+          LATEST: ${{ needs.detect.outputs.latest }}
+          BRANCH: ${{ needs.detect.outputs.branch }}
+          BOT_EMAIL: ${{ needs.detect.outputs.bot_email }}
+          FAILED: ${{ needs.build.outputs.failed }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          bump="$RUNNER_TEMP/bump"
+          # Set by the build job, whose build scripts can write its outputs.
+          if [ "$FAILED" != "true" ] && [ "$FAILED" != "false" ]; then
+            echo "::error::the build job reported failed='$FAILED', not true or false."
+            exit 1
+          fi
+          git config user.name "fg-labs-bot[bot]"
+          git config user.email "$BOT_EMAIL"
+          git checkout -b "$BRANCH"
+          git add Cargo.toml Cargo.lock
+          git commit -m "chore(deps): bump fgumi to $LATEST"
+          sha="$(git rev-parse HEAD)"
+
+          # GitHub caps PR bodies at 65536 characters. The fixed part is small,
+          # so the release notes get what is left of a 60000-byte budget, one
+          # whole release at a time; a release that does not fit is linked.
+          # Cutting at a release boundary never leaves a block open.
+          build_body() {  # build_body CHECKS_FILE
+            echo "<!-- fgumi-bump:pushed-sha=$sha -->"
+            echo "Bumps \`fgumi\` from $CURRENT to $LATEST."
+            echo
+            if [ "$FAILED" = "true" ]; then
+              echo "**At least one check failed against the new version**, so this PR is a draft. The failures below are the worklist: past bumps usually needed \`tests/cli.rs\` updated for changed engine log lines. Push fixes onto this branch, then mark it ready."
+            else
+              echo "The checks below pass against the new version with no source change."
+            fi
+            echo
+            echo "## Checks"
+            echo
+            echo "Run by the bump workflow on ubuntu. CI on this PR (\`check.yml\`, including macOS and \`cargo audit\`) is authoritative."
+            echo
+            cat "$1"
+            echo
+            echo "Full logs are in the \`fgumi-bump\` artifact of [this workflow run]($RUN_URL)."
+            echo
+            echo "## fgumi release notes"
+            echo
+          }
+          body="$RUNNER_TEMP/pr-body.md"
+          budget=60000
+          build_body "$bump/checks.md" > "$body"
+          if [ "$(wc -c < "$body")" -gt "$((budget / 2))" ]; then
+            # Huge failure logs: keep the pass/fail lines and point at the
+            # artifact, so the release notes still fit.
+            build_body "$bump/checks-short.md" > "$body"
+          fi
+
+          notes="$RUNNER_TEMP/notes"
+          mkdir -p "$notes"
+          versions="$(find "$notes" -name '*.md' -exec basename {} .md \; | sort -V)"
+          if [ -z "$versions" ]; then
+            echo "No release notes could be collected; see the [fgumi releases](https://github.com/fulcrumgenomics/fgumi/releases)." >> "$body"
+          fi
+          for v in $versions; do
+            block="$RUNNER_TEMP/block.md"
+            {
+              echo "<details><summary>fgumi v$v</summary>"
+              echo
+              cat "$notes/$v.md"
+              echo
+              echo "</details>"
+              echo
+            } > "$block"
+            # The 500 bytes leave room for link lines of releases still to come.
+            if [ $(( $(wc -c < "$body") + $(wc -c < "$block") + 500 )) -le "$budget" ]; then
+              cat "$block" >> "$body"
+            else
+              echo "- [fgumi v$v]($(cat "$notes/$v.url")): notes too long to include here." >> "$body"
+            fi
+          done
+
+          echo "path=$body" >> "$GITHUB_OUTPUT"
+          {
+            echo "## PR body"
+            echo
+            cat "$body"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The App token, not GITHUB_TOKEN, pushes and opens the PR: a PR opened
+      # with GITHUB_TOKEN does not trigger check.yml, so CI would never run.
+      - name: Generate app token
+        id: app-token
+        if: inputs.dry_run != true
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.FG_LABS_BOT_APP_ID }}
+          private-key: ${{ secrets.FG_LABS_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      # Pushes and opens the PR in one step. If the PR cannot be opened and no
+      # PR exists for the branch, the branch is deleted again so the next run
+      # retries cleanly; a cancelled run's leftover branch is instead replaced
+      # by the next run (see "Check for an existing PR or branch").
+      - name: Push and open the PR
+        id: pr
+        if: inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          LATEST: ${{ needs.detect.outputs.latest }}
+          BRANCH: ${{ needs.detect.outputs.branch }}
+          ORPHAN_SHA: ${{ needs.detect.outputs.orphan_sha }}
+          BODY: ${{ steps.body.outputs.path }}
+          FAILED: ${{ needs.build.outputs.failed }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git_auth() { git -c "http.https://github.com/.extraheader=$auth" "$@"; }
+
+          # The lease lets this overwrite only the leftover commit found
+          # earlier (or, with none, only create the branch); anything pushed
+          # since makes the push fail.
+          git_auth push --force-with-lease="refs/heads/$BRANCH:$ORPHAN_SHA" origin "HEAD:refs/heads/$BRANCH"
+
+          draft=()
+          if [ "$FAILED" = "true" ]; then
+            draft=(--draft)
+          fi
+          if ! gh pr create "${draft[@]}" --base main --head "$BRANCH" \
+                 --title "chore(deps): bump fgumi to $LATEST" --body-file "$BODY"; then
+            # gh can fail after GitHub created the PR (e.g. a timeout). Only
+            # delete the branch when no PR exists, since deleting it would
+            # close that PR.
+            if [ -z "$(gh pr list --head "$BRANCH" --state all --json number,headRepositoryOwner \
+                         --jq ".[] | select(.headRepositoryOwner.login == \$ENV.OWNER) | .number")" ]; then
+              git_auth push origin --delete "$BRANCH" || true
+              echo "::error::\`gh pr create\` failed; deleted $BRANCH so the next run retries."
+            else
+              echo "::error::\`gh pr create\` reported failure, but a PR for $BRANCH exists."
+            fi
+            exit 1
+          fi
+
+      # Runs only once the replacement PR exists. An older bot PR is closed
+      # only if its version is older than the new one and its branch head is
+      # still the commit the bot pushed (recorded in its body): closing rather
+      # than force-updating keeps any review comments, and a branch someone
+      # pushed fixes to is left open. Only PRs the bot opened are considered:
+      # a body is editable, so a PR opened by hand could carry the marker.
+      - name: Supersede older bump PRs
+        if: steps.pr.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BRANCH: ${{ needs.detect.outputs.branch }}
+          LATEST: ${{ needs.detect.outputs.latest }}
+        run: |
+          set -euo pipefail
+          source scripts/fgumi-bump-helpers.sh
+          gh pr list --state open --limit 200 \
+              --json number,author,headRefName,headRefOid,body \
+              --jq ".[] | select(.author.login == \"app/fg-labs-bot\")
+                        | select(.headRefName | startswith(\"$BRANCH_PREFIX\")) | @base64" \
+            | while read -r row; do
+                decode() { echo "$row" | base64 -d | jq -r "$1"; }
+                num="$(decode .number)"
+                head_ref="$(decode .headRefName)"
+                head_sha="$(decode .headRefOid)"
+                [ "$head_ref" = "$BRANCH" ] && continue
+                v="${head_ref#"$BRANCH_PREFIX"}"
+                if ! is_version "$v" || ! gt "$LATEST" "$v"; then
+                  continue
+                fi
+                marker="$(decode .body | grep -oE 'fgumi-bump:pushed-sha=[0-9a-f]{40}' | head -1 | cut -d= -f2 || true)"
+                if [ -z "$marker" ]; then
+                  continue
+                elif [ "$marker" = "$head_sha" ]; then
+                  gh pr close "$num" --delete-branch \
+                    --comment "Superseded by the bump to fgumi $LATEST. No commits were pushed to this branch beyond the bot's, so closing."
+                else
+                  gh pr comment "$num" \
+                    --body "A newer bump to fgumi $LATEST is open. Leaving this one open because its branch has commits beyond the bot's."
+                fi
+              done
