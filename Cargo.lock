@@ -603,9 +603,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "859c66f2a3e9c0d1924b71681ac535776046dcf411973898253197e90d0fa04e"
+checksum = "b6df822b76bc250b078ea911df810300f93d4ff1d5a64c5162d2f85e0d269d66"
 dependencies = [
  "ahash",
  "anyhow",
@@ -666,9 +666,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-bam-io"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2c800a5ba24531092c2d7f44838a1a008b67e2d4200f83f749d1d5c51579c7d"
+checksum = "7778e2057aa42a93d01d3f28abc1501eb3020a74ef2341990a5ddb75d09bcfc0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -690,9 +690,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-bgzf"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f36ebd44b0d40b801511b3abadb20ebcc7facf99c32ee5be3b823b22085b2c9"
+checksum = "cfa677f1a7da8b1005e01f9a49c1cacb230490f0b715be9113b3558255c6cd4b"
 dependencies = [
  "bgzf",
  "crc32fast",
@@ -701,9 +701,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-cli-macros"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8bc9030d5cdc049b7cee7fd00c2bd155e12885903f9fd74853de3477a4ca6d80"
+checksum = "cd16ed77ed5cac171efb1e0db7da3740199164695c3ce2db1bee1462381ea383"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -712,9 +712,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-consensus"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af97a244d1ddb51cd99146fecb7beac4ab461c5d5885bb2cf5f6591e29fa2a9a"
+checksum = "047208cfa08153a2785f2092507723478f94ecf09453f3cb3f3066d0002a18d9"
 dependencies = [
  "ahash",
  "anyhow",
@@ -732,18 +732,18 @@ dependencies = [
 
 [[package]]
 name = "fgumi-dna"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c135700a3b1b2b8b9fe157f59efbc754d00b1c41f7a8dd485216df0da3b64e0"
+checksum = "c6d9ecbf2fadd3f8da58fa7866394e05c92ffe4d8003c2a7f75f5478464022b6"
 dependencies = [
  "ahash",
 ]
 
 [[package]]
 name = "fgumi-metrics"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "415b74bdc05341f37a1a72fbbafa66b4030ddd276740a84bcc1bfb372e47a94c"
+checksum = "f98418940880679a8c8f64d2c459ac87a0ec2fde4bd63d0073413b4d13d73707"
 dependencies = [
  "anyhow",
  "csv",
@@ -758,9 +758,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-pipeline-core"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46af8e4b567204dae2f56a4a346cb190d59f9360cd2405fec11222a164dd3f5a"
+checksum = "d517148abddb5e10ad7c0b2477a9d437e801db09ed5bf95ceb8359607b118f15"
 dependencies = [
  "ahash",
  "anyhow",
@@ -773,9 +773,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-pipeline-io"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "945f06b561f80c9b2c273d7666ecf5efdb71aecb149a5e7d19ef58bd465af7c8"
+checksum = "162507aa2e0ff0c33e6d6d9f0f1d2d392bd9b67a298a8db94e4b629aa0775144"
 dependencies = [
  "anyhow",
  "crossbeam-channel",
@@ -793,9 +793,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-raw-bam"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38923c7bda5928b533477cf388e04593b49cc18c14cea3dd2e7e73a3435f738c"
+checksum = "6be08c09a00223c62fa9c528c27aeb025c2814553a97b5bf988b6253c08f0fd9"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -808,9 +808,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-sam"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e6ad56de4138798f0ee49dca2fbb62ba997151ea4d881027d4e1455cd7678fa"
+checksum = "1dd48d91b7bb14bdea2f5aefc0fcec3ff3a51d3e8dc0f6ac0322ac38eddd9163"
 dependencies = [
  "anyhow",
  "bstr 1.13.1",
@@ -825,15 +825,15 @@ dependencies = [
 
 [[package]]
 name = "fgumi-simd-fastq"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07f54c37ccb99b5dcfa88731710e663af2d1c36af7b655d60d94e9359673ccdf"
+checksum = "720bcc382add6405735c9412185535c4830b71b355951d620126df50d8e404f1"
 
 [[package]]
 name = "fgumi-sort"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03ae59b8afdb7edbff9869c85e3bcf7e8181805d5f2c98618f2a0d4719ac44c1"
+checksum = "eaa3ab431208673af3d3db3a349db8a887142e0393d9705ab21657f4a6c11bbc"
 dependencies = [
  "ahash",
  "anyhow",
@@ -866,9 +866,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-tag"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a93d303adbae4c523fa372957495c96111282585721e3fefbdf560222475d8c"
+checksum = "60d435d0c7944c5dc98fc7045f7ecdb953e24807c694fdff6050ce93788c18b8"
 dependencies = [
  "anyhow",
  "noodles",
@@ -876,9 +876,9 @@ dependencies = [
 
 [[package]]
 name = "fgumi-umi"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1478d7fd9792a2364f68618621c00340758f86b2aff40b31a78dc8fa9aa4e5a"
+checksum = "fef536a2615df5bc64cf4e97d156520df7cbc22755b99a695109fb74af4e87d5"
 dependencies = [
  "ahash",
  "anyhow",
@@ -2986,18 +2986,18 @@ checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[package]]
 name = "zstd"
-version = "0.13.3"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e91ee311a569c327171651566e07972200e76fcfe2242a4fa446149a3881c08a"
+checksum = "db3ae9bf90af6e40197bef767eeefc46ad6397420fe873830bd85e5fbbfb3c70"
 dependencies = [
  "zstd-safe",
 ]
 
 [[package]]
 name = "zstd-safe"
-version = "7.3.0"
+version = "8.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64d80649ab6db9d9f6f9c80a40becd948eda4714a0a5ac8c4d157a32231c7882"
+checksum = "ded520f16b29e1a9b771c722221b2b0a0398c2316d9bb3c42b458a5414d7434b"
 dependencies = [
  "zstd-sys",
 ]
