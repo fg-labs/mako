@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.9] - 2026-10-29
+
+### Miscellaneous Tasks
+
+- Bump the all-actions group across 1 directory with 6 updates ([#31](https://github.com/fg-labs/mako/pull/31))
+- Bump noodles from 0.106.0 to 0.115.0 ([#32](https://github.com/fg-labs/mako/pull/32))
+- Add nightly workflow that opens a PR for new fgumi releases ([#40](https://github.com/fg-labs/mako/pull/40))
+
+
+
 ## [0.1.8] - 2026-10-20
 
 ### Miscellaneous Tasks
