@@ -27,10 +27,14 @@ version banner) and `tests/cli.rs` (end-to-end CLI tests).
 
 - CLI flag wiring, help text, version banner → `src/main.rs`.
 - End-to-end tests → `tests/cli.rs`.
-- Bumping fgumi → `Cargo.toml` (one-line version bump).
+- Bumping fgumi → `Cargo.toml` (one-line version bump). Normally done by
+  `.github/workflows/fgumi-bump.yml`, which opens a PR nightly when a new
+  fgumi is on crates.io (dependabot ignores fgumi); push any needed fixes
+  onto that PR's branch.
 - Release machinery → `release-plz.toml`, `cliff.toml`,
   `.github/workflows/publish.yml`.
-- CI → `.github/workflows/check.yml`.
+- CI → `.github/workflows/check.yml` (also runs actionlint on the
+  workflows).
 
 ## Local checks before committing
 

@@ -1,12 +1,16 @@
 version: 2
 updates:
-  # Maintain dependencies for Cargo (one PR per dependency, so a fgumi bump
-  # opens on its own rather than getting bundled with unrelated deps).
+  # Maintain dependencies for Cargo (one PR per dependency, ungrouped).
   - package-ecosystem: cargo
     directory: "/"
     schedule:
       interval: daily
     open-pull-requests-limit: 5
+    ignore:
+      # fgumi bumps come from .github/workflows/fgumi-bump.yml, which also runs
+      # the checks and collects release notes; skip it here to avoid a
+      # duplicate PR for the same release.
+      - dependency-name: fgumi
 
   # Maintain dependencies for GitHub Actions
   - package-ecosystem: github-actions
