@@ -7,6 +7,10 @@ All notable changes to this project will be documented in this file.
 ### Bug Fixes
 
 - Bump libz-sys to 1.1.33 for RUSTSEC-2026-0418 and RUSTSEC-2026-0544 ([#44](https://github.com/fg-labs/mako/pull/44))
+- Bump fgumi to 0.9.0 ([#40](https://github.com/fg-labs/mako/pull/40))
+  - A sort blocked on slow I/O (a slow filesystem or downstream reader) no longer fails as a deadlock; the new `--deadlock-timeout` option tunes the stall watchdog (default 10s, 0 disables).
+  - Fixes a merge-phase race that could fail a sort with an out-of-order read.
+  - Updates zstd to 0.14 to clear RUSTSEC-2026-0391, RUSTSEC-2026-0398 and RUSTSEC-2026-0403.
 
 ### Miscellaneous Tasks
 
