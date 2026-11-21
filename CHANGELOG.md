@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.9] - 2026-11-21
+
+### Bug Fixes
+
+- Bump libz-sys to 1.1.33 for RUSTSEC-2026-0418 and RUSTSEC-2026-0544 ([#44](https://github.com/fg-labs/mako/pull/44))
+- Bump fgumi to 0.9.0 ([#40](https://github.com/fg-labs/mako/pull/40))
+  - A sort blocked on slow I/O (a slow filesystem or downstream reader) no longer fails as a deadlock; the new `--deadlock-timeout` option tunes the stall watchdog (default 10s, 0 disables).
+  - Fixes a merge-phase race that could fail a sort with an out-of-order read.
+  - Updates zstd to 0.14 to clear RUSTSEC-2026-0391, RUSTSEC-2026-0398 and RUSTSEC-2026-0403.
+
+### Miscellaneous Tasks
+
+- Bump the all-actions group across 1 directory with 6 updates ([#31](https://github.com/fg-labs/mako/pull/31))
+- Bump noodles from 0.106.0 to 0.115.0 ([#32](https://github.com/fg-labs/mako/pull/32))
+- Add nightly workflow that opens a PR for new fgumi releases ([#40](https://github.com/fg-labs/mako/pull/40))
+- Bump the all-actions group across 1 directory with 4 updates ([#45](https://github.com/fg-labs/mako/pull/45))
+- Bump clap from 4.6.7 to 4.6.8 ([#43](https://github.com/fg-labs/mako/pull/43))
+- Bump log from 0.4.34 to 0.4.35 ([#42](https://github.com/fg-labs/mako/pull/42))
+- Bump noodles from 0.115.0 to 0.119.0 ([#41](https://github.com/fg-labs/mako/pull/41))
+
+
+
 ## [0.1.8] - 2026-10-20
 
 ### Miscellaneous Tasks
